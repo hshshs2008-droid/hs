@@ -1,0 +1,14 @@
+.git
+.state
+.env
+.env.*
+.venv
+*.log
+**/__pycache__
+**/*.pyc
+**/*.sqlite3
+**/*.sqlite3-*
+test_*.py
+README.md
+PROJECT_STATUS.md
+DEPLOYMENT.md
