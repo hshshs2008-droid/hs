@@ -11,13 +11,15 @@ from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from market import MarketError
+
 
 logger = logging.getLogger(__name__)
 
 
 WELCOME = (
     "أهلاً بك! 👋\n"
-    "أراقب أزواج USDT في بايننس سبوت على فريم 4 ساعات.\n"
+    "أراقب أزواج USDT في Binance Spot على فريم 4h.\n"
     "RSI (14) يعبر فوق 20، والستوكاست (14، 3، 3) يتقاطع صعوداً تحت 30 "
     "بعد أن كان خطّاه تحت 20 في الشمعة السابقة.\n"
     "يكتمل الشرطان في الشمعة نفسها أو شمعتين متتاليتين.\n\n"
@@ -75,6 +77,29 @@ def api(token, method, payload=None):
     return result["result"]
 
 
+def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_send=None):
+    """Enrich each live delivery attempt with its own fresh quote, then send."""
+    if parse_mode is None and text.startswith("📈 "):
+        heading, separator, body = text.partition("\n")
+        symbol = heading.removeprefix("📈 ").strip()
+        if symbol.isalnum() and symbol.endswith("USDT"):
+            try:
+                price = client.latest_price(symbol)
+                whole, dot, fraction = price.partition(".")
+                display = f"{int(whole):,}" + (dot + fraction if fraction else "")
+                quote = f"💵 {display} USDT (عند الإرسال)"
+            except MarketError as error:
+                logger.warning("Latest price unavailable; HTTP status=%s", error.status)
+                quote = "💵 السعر غير متاح"
+            text = f"{heading} | {quote}{separator}{body}"
+    payload = {"chat_id": chat_id, "text": text}
+    if parse_mode is not None:
+        payload["parse_mode"] = parse_mode
+    if before_send is not None:
+        before_send()
+    return api(token, "sendMessage", payload)
+
+
 def handle_update(token, update, store=None, worker_alive=True, history=None):
     if not isinstance(update, dict):
         return
@@ -104,7 +129,7 @@ def handle_update(token, update, store=None, worker_alive=True, history=None):
                 # Acknowledge first: a failed acknowledgement must not create
                 # duplicate background jobs when the polling loop retries.
                 api(token, "sendMessage", {"chat_id": chat_id, "text": (
-                    "جارٍ تجهيز جميع إشارات آخر 24 ساعة على فريم 4 ساعات.\n"
+                    "جارٍ تجهيز جميع إشارات آخر 24 ساعة على فريم 4h.\n"
                     "قد يستغرق الفحص الأول بضع دقائق؛ ستصل القائمة هنا.\n"
                     "هذه إشارات تاريخية وليست تنبيهات جديدة."
                 )})
@@ -229,15 +254,16 @@ def main():
                 if remaining > 0:
                     raise AlertDeliveryError("إرسال الرسائل ينتظر مهلة تيليجرام.",
                                              status=429, retry_after=remaining)
-                delay = max(0, next_message_at - time.monotonic())
-                if stop.wait(delay):
-                    raise AlertDeliveryError("توقف إرسال الرسائل.")
-                next_message_at = time.monotonic() + 1.05
+                def pace():
+                    nonlocal next_message_at
+                    delay = max(0, next_message_at - time.monotonic())
+                    if stop.wait(delay):
+                        raise AlertDeliveryError("توقف إرسال الرسائل.")
+                    next_message_at = time.monotonic() + 1.05
+                    store.set_next_delivery_at(time.time() + 1.05)
+
                 try:
-                    payload = {"chat_id": chat_id, "text": text}
-                    if parse_mode is not None:
-                        payload["parse_mode"] = parse_mode
-                    api(token, "sendMessage", payload)
+                    send_alert_message(token, client, chat_id, text, parse_mode, before_send=pace)
                 except TelegramError as error:
                     if error.status == 429:
                         store.set_delivery_blocked_until(time.time() + max(60, error.retry_after or 0))

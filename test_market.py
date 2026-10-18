@@ -29,19 +29,44 @@ class MarketTests(unittest.TestCase):
             response({"serverTime": 123456789}),
             response({"symbols": []}),
             response([row(0)]),
+            response({"symbol": "BTCUSDT", "price": "67500.12000000"}),
         ]
         client = market.BinanceClient(base_url=market.DEFAULT_BASE_URL)
         self.assertEqual(client.server_time(), 123456789)
         self.assertEqual(client.spot_symbols(), [])
         self.assertEqual(len(client.candles("BTCUSDT", market.FOUR_HOURS_MS)), 1)
+        self.assertEqual(client.latest_price("BTCUSDT"), "67500.12")
         urls = [call.args[0].full_url for call in urlopen.call_args_list]
         self.assertEqual(urls[0], "https://api.binance.com/api/v3/time")
         self.assertEqual(urls[1], "https://api.binance.com/api/v3/exchangeInfo?permissions=SPOT&showPermissionSets=false&symbolStatus=TRADING")
         self.assertEqual(urls[2], "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=4h&limit=500")
+        self.assertEqual(urls[3], "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT")
         for call in urlopen.call_args_list:
             self.assertIsNone(call.args[0].data)
             self.assertIsNone(call.args[0].get_header("Authorization"))
             self.assertLessEqual(call.kwargs["timeout"], 20)
+
+    @patch.object(market.BinanceClient, "_get")
+    def test_latest_price_preserves_tiny_and_precise_quotes_without_float_rounding(self, get):
+        client = market.BinanceClient()
+        for raw, expected in (("0.000000010000", "0.00000001"),
+                              ("25000.00000000", "25000"),
+                              ("1.123456789123456789", "1.123456789123456789")):
+            with self.subTest(raw=raw):
+                get.return_value = {"symbol": "BTCUSDT", "price": raw}
+                self.assertEqual(client.latest_price("BTCUSDT"), expected)
+        self.assertEqual(get.call_count, 3)
+
+    @patch.object(market.BinanceClient, "_get")
+    def test_latest_price_rejects_invalid_values_and_mismatched_symbols(self, get):
+        client = market.BinanceClient()
+        for raw in (None, True, 10, "0", "-1", "NaN", "sNaN", "Infinity", "oops", "1e999999", "1e-999999"):
+            with self.subTest(raw=raw), self.assertRaises(market.MarketError):
+                get.return_value = {"symbol": "BTCUSDT", "price": raw}
+                client.latest_price("BTCUSDT")
+        get.return_value = {"symbol": "ETHUSDT", "price": "10"}
+        with self.assertRaises(market.MarketError):
+            client.latest_price("BTCUSDT")
 
     @patch.dict("os.environ", {"API_BINANCE_BASE": "https://data-api.binance.vision/"})
     @patch("market.urlopen", return_value=response({"serverTime": 42}))
@@ -180,6 +205,7 @@ class SharedMarketGateTests(unittest.TestCase):
         self.now = deadline - 0.5
         for endpoint in (self.client.spot_symbols,
                          lambda: self.client.candles("BTCUSDT", market.FOUR_HOURS_MS),
+                         lambda: self.client.latest_price("BTCUSDT"),
                          self.client.server_time):
             with self.subTest(endpoint=endpoint), self.assertRaises(market.MarketError) as blocked:
                 endpoint()

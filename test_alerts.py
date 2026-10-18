@@ -321,6 +321,9 @@ class ScannerTests(unittest.TestCase):
         self.assertEqual(delays, [0.15, 0.15, 0.15])
         text = format_alert("BTCUSDT", signal_at(self.target, adjacent=True))
         self.assertEqual(text.splitlines()[0], "📈 BTCUSDT")
+        self.assertIn("🏷️ Binance Spot", text.splitlines())
+        self.assertIn("⏱️ 4h • شموع مغلقة", text.splitlines())
+        self.assertNotIn("قيم آخر إغلاق", text)
         self.assertIn("شمعتين متتاليتين", text)
         self.assertNotIn("بتوقيت", text)
         self.assertIn("RSI (14): 19.00 → 21.00", text)
@@ -338,7 +341,7 @@ class ScannerTests(unittest.TestCase):
             with self.subTest(utc_time=utc_time):
                 close_time = int(datetime.fromisoformat(utc_time).timestamp() * 1000) - 1
                 text = format_alert("BTCUSDT", signal_at(close_time))
-                self.assertIn(f"إغلاق الإشارة: {expected}", text.splitlines())
+                self.assertIn(f"🕒 إغلاق شمعة 4h: {expected}", text.splitlines())
                 self.assertIn(f"عبور RSI فوق 20: {expected}", text)
                 self.assertIn(f"تقاطع K فوق D: {expected}", text)
 
@@ -347,10 +350,18 @@ class ScannerTests(unittest.TestCase):
         self.store.subscribe(1, 0)
         self.store.record("BTCUSDT", close_time, signal_at(close_time))
         expected = format_alert("BTCUSDT", signal_at(close_time))
-        legacy = expected.replace("2026-01-15 (14:00)", "2026-01-15 15:00")
-        legacy = legacy.replace("📈 BTCUSDT", "🔔 تحقق فلتر الدخول: BTCUSDT")
-        legacy = legacy.replace("إغلاق الإشارة: 2026-01-15 15:00",
-                                "إغلاق الإشارة: 2026-01-15 15:00 (بتوقيت الرياض)")
+        legacy = (
+            "🔔 تحقق فلتر الدخول: BTCUSDT\n"
+            "بايننس سبوت • فريم 4 ساعات • شموع مغلقة\n"
+            "إغلاق الإشارة: 2026-01-15 15:00 (بتوقيت الرياض)\n"
+            "قيم آخر إغلاق:\n"
+            "RSI (14): 19.00 → 21.00\n"
+            "K: 10.00 → 22.00\n"
+            "D: 14.00 → 20.00\n"
+            "عبور RSI فوق 20: 2026-01-15 15:00\n"
+            "تقاطع K فوق D: 2026-01-15 15:00\n"
+            "الشرطان في الشمعة نفسها."
+        )
         with self.store._lock, self.store._db:
             self.store._db.execute("UPDATE signals SET message = ? WHERE symbol = ? AND close_time = ?",
                                    (legacy, "BTCUSDT", close_time))

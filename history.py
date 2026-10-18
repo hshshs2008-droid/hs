@@ -16,6 +16,7 @@ from market import FOUR_HOURS_MS, MarketError
 
 DAY_MS = 24 * 60 * 60 * 1000
 MAX_MESSAGE_CHARS = 3500
+TABLE_LABELS = ("مسلسل", "العملة", "التاريخ", "الوقت")
 REPORT_DELIVERY_ERROR = "تعذر إرسال تقرير الإشارات كاملاً؛ أعد /signals لاحقاً."
 REPORT_JOB_ERROR = "تعذر إكمال تقرير الإشارات؛ أعد /signals لاحقاً."
 logger = logging.getLogger(__name__)
@@ -68,34 +69,21 @@ def _pad(text, width, right=False):
 
 
 def _table(entries, widths):
-    labels = ("#", "Pair", "Time", "RSI", "K", "D")
-
     def border(left, middle, right):
         return left + middle.join("─" * (width + 2) for width in widths) + right
 
-    def line(cells):
-        return "│ " + " │ ".join(_pad(cell, width, right=index >= 3)
-                                  for index, (cell, width) in enumerate(zip(cells, widths))) + " │"
+    def line(cells, header=False):
+        padded = [_pad(cell, width, right=index == 0)
+                  for index, (cell, width) in enumerate(zip(cells, widths))]
+        if header:
+            # Keep Arabic headings aligned with the left-to-right data columns.
+            padded = ["\u200e" + cell + "\u200e" for cell in padded]
+        return "│ " + " │ ".join(padded) + " │"
 
-    lines = [border("┌", "┬", "┐"), line(labels), border("├", "┼", "┤")]
-    lines.extend(line(cells) for date, cells in entries)
+    lines = [border("┌", "┬", "┐"), line(TABLE_LABELS, header=True), border("├", "┼", "┤")]
+    lines.extend(line(cells) for cells in entries)
     lines.append(border("└", "┴", "┘"))
     return "<pre>" + escape("\n".join(lines)) + "</pre>"
-
-
-def _tables(entries, widths):
-    blocks = []
-    group = []
-    current_date = None
-    for date, cells in entries:
-        if date != current_date and group:
-            blocks.append(f"<b>📅 {current_date}</b>\n" + _table(group, widths))
-            group = []
-        current_date = date
-        group.append((date, cells))
-    if group:
-        blocks.append(f"<b>📅 {current_date}</b>\n" + _table(group, widths))
-    return "\n\n".join(blocks)
 
 
 def _message_units(text):
@@ -114,7 +102,7 @@ def format_history(result):
     )
     header_text = (
         "إشارات تاريخية، وليست تنبيهات جديدة\n"
-        "بايننس سبوت • جميع أزواج USDT • فريم 4 ساعات\n"
+        "Binance Spot • جميع أزواج USDT • 4h\n"
         f"الفترة: {_time_label(cutoff)} إلى {_time_label(result.as_of_ms)}\n"
         f"آخر إغلاق معتمد: {_time_label(result.target_close_time + 1)}\n"
         f"الأزواج المفحوصة: {result.symbols_checked}/{result.symbols_total}\n"
@@ -136,30 +124,25 @@ def format_history(result):
     rows = []
     for index, (symbol, signal) in enumerate(matches, 1):
         local = datetime.fromtimestamp((signal.close_time + 1) / 1000, DISPLAY_TZ)
-        rows.append((local.strftime("%Y-%m-%d"), (
-            str(index), symbol, local.strftime("(%H:%M)"),
-            f"{signal.rsi_current:.2f}", f"{signal.k_current:.2f}", f"{signal.d_current:.2f}",
-        )))
-    labels = ("#", "Pair", "Time", "RSI", "K", "D")
-    widths = tuple(max(_display_width(label), *(_display_width(cells[index]) for date, cells in rows))
-                   for index, label in enumerate(labels))
-    legend = "العملة: Pair • الوقت: Time • الستوكاست: K وD\n"
-    prefix = header + escape(legend)
-    # Dates, table borders/headers and markup all count toward the page limit.
+        rows.append((str(index), symbol, local.strftime("%Y-%m-%d"), local.strftime("(%H:%M)")))
+    widths = tuple(max(_display_width(label), *(_display_width(cells[index]) for cells in rows))
+                   for index, label in enumerate(TABLE_LABELS))
+    prefix = header
+    # Table borders/headers and markup all count toward the page limit.
     # Leave room for final page numbers before appending the next whole row.
     groups = []
     current = []
     for row in rows:
         candidate = current + [row]
-        if current and _message_units(prefix + _tables(candidate, widths)) + 64 > MAX_MESSAGE_CHARS:
+        if current and _message_units(prefix + _table(candidate, widths)) + 64 > MAX_MESSAGE_CHARS:
             groups.append(current)
             current = []
         current.append(row)
-        if _message_units(prefix + _tables(current, widths)) + 64 > MAX_MESSAGE_CHARS:
+        if _message_units(prefix + _table(current, widths)) + 64 > MAX_MESSAGE_CHARS:
             raise ValueError("A historical table row exceeds the message limit.")
     if current:
         groups.append(current)
-    return [prefix + f"<b>الجزء {index}/{len(groups)}</b>\n\n" + _tables(group, widths)
+    return [prefix + f"<b>الجزء {index}/{len(groups)}</b>\n\n" + _table(group, widths)
             for index, group in enumerate(groups, 1)]
 
 

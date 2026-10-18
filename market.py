@@ -1,6 +1,7 @@
 """Public Binance spot market data; no account keys are required."""
 
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from datetime import timezone
 from email.utils import parsedate_to_datetime
 from http.client import HTTPException
@@ -159,6 +160,24 @@ class BinanceClient:
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
             raise MarketError("Binance returned an invalid server time.")
         return value
+
+    def latest_price(self, symbol):
+        """Read the latest spot trade price without caching or float rounding."""
+        if not _valid_symbol(symbol):
+            raise ValueError("Invalid Binance symbol.")
+        result = self._get("/api/v3/ticker/price", {"symbol": symbol})
+        raw = result.get("price") if isinstance(result, dict) else None
+        if (not isinstance(result, dict) or result.get("symbol") != symbol
+                or not isinstance(raw, str) or not 1 <= len(raw) <= 80):
+            raise MarketError("Binance returned an invalid latest price.")
+        try:
+            price = Decimal(raw)
+        except InvalidOperation:
+            raise MarketError("Binance returned an invalid latest price.") from None
+        if not price.is_finite() or price <= 0 or not -40 <= price.adjusted() <= 30:
+            raise MarketError("Binance returned an invalid latest price.")
+        rendered = format(price, "f")
+        return rendered.rstrip("0").rstrip(".") if "." in rendered else rendered
 
     def spot_symbols(self):
         # Permission sets are unnecessary for public spot scanning and can

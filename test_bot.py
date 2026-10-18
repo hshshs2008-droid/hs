@@ -19,6 +19,50 @@ class OffsetStore:
 
 
 class BotTests(unittest.TestCase):
+    @patch("bot.api")
+    def test_delivery_retry_fetches_fresh_price_after_signal_creation(self, api):
+        client = Mock()
+        client.latest_price.side_effect = ["67500.12", "67601.34"]
+        api.side_effect = [bot.TelegramError("Retry", status=429), {"ok": True}]
+        message = "📈 BTCUSDT\n🕒 إغلاق شمعة 4h: 2026-10-18 (11:00)"
+        with self.assertRaises(bot.TelegramError):
+            bot.send_alert_message("test-token", client, 42, message)
+        bot.send_alert_message("test-token", client, 42, message)
+        first, second = [call.args[2]["text"] for call in api.call_args_list]
+        self.assertIn("💵 67,500.12 USDT (عند الإرسال)", first)
+        self.assertIn("💵 67,601.34 USDT (عند الإرسال)", second)
+        self.assertTrue(first.endswith(message.split("\n", 1)[1]))
+        self.assertEqual(client.latest_price.call_count, 2)
+        self.assertNotIn("💵", message)
+
+    @patch("bot.api")
+    def test_price_failure_still_delivers_signal_without_a_stale_or_invented_price(self, api):
+        client = Mock()
+        client.latest_price.side_effect = bot.MarketError("private diagnostic", status=429)
+        with self.assertLogs("bot", level="WARNING") as log:
+            bot.send_alert_message("test-token", client, 42, "📈 BTCUSDT\nsignal body")
+        self.assertEqual(api.call_args.args[2]["text"], "📈 BTCUSDT | 💵 السعر غير متاح\nsignal body")
+        self.assertNotIn("private diagnostic", " ".join(log.output))
+
+    @patch("bot.api")
+    def test_history_tables_do_not_request_a_live_price(self, api):
+        client = Mock()
+        message = "<pre>مسلسل | العملة | التاريخ | الوقت</pre>"
+        bot.send_alert_message("test-token", client, 42, message, "HTML")
+        client.latest_price.assert_not_called()
+        self.assertEqual(api.call_args.args[2], {"chat_id": 42, "text": message, "parse_mode": "HTML"})
+
+    @patch("bot.api")
+    def test_dispatch_is_paced_after_price_lookup_and_before_telegram_request(self, api):
+        events = []
+        client = Mock()
+        client.latest_price.side_effect = lambda symbol: events.append("quote") or "0.00000001"
+        api.side_effect = lambda *args: events.append("send")
+        bot.send_alert_message("test-token", client, 42, "📈 BTCUSDT\nbody",
+                               before_send=lambda: events.append("pace"))
+        self.assertEqual(events, ["quote", "pace", "send"])
+        self.assertIn("💵 0.00000001 USDT", api.call_args.args[2]["text"])
+
     def test_truncated_telegram_response_is_recoverable_and_sanitized(self):
         response = Mock()
         response.__enter__ = Mock(return_value=response)

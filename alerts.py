@@ -35,20 +35,30 @@ def _close_label(close_time):
 
 def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_close_time):
     """Refresh queued messages without rewriting stored indicators or events."""
-    replacements = {
-        "إغلاق الإشارة: ": f"إغلاق الإشارة: {_close_label(close_time)}",
-        "عبور RSI فوق 20: ": f"عبور RSI فوق 20: {_close_label(rsi_event_close_time)}",
-        "تقاطع K فوق D: ": f"تقاطع K فوق D: {_close_label(stoch_event_close_time)}",
-    }
+    timestamps = (
+        ("إغلاق الإشارة: ", "إغلاق شمعة 4h: ", "🕒 ", close_time),
+        ("عبور RSI فوق 20: ", "عبور RSI فوق 20: ", "↗️ ", rsi_event_close_time),
+        ("تقاطع K فوق D: ", "تقاطع K فوق D: ", "🔀 ", stoch_event_close_time),
+    )
+    styles = {"RSI (14): ": "📊 ", "K: ": "🔹 ", "D: ": "🔸 ", "الشرطان ": "🔗 "}
     lines = []
     for line in message.splitlines():
+        if line == "قيم آخر إغلاق:":
+            continue
+        if line == "بايننس سبوت • فريم 4 ساعات • شموع مغلقة":
+            lines.extend(("🏷️ Binance Spot", "⏱️ 4h • شموع مغلقة"))
+            continue
         if line.startswith("🔔 تحقق فلتر الدخول: "):
             line = "📈 " + line.removeprefix("🔔 تحقق فلتر الدخول: ")
         elif line.startswith("🔔 "):
             line = "📈 " + line.removeprefix("🔔 ")
-        for prefix, replacement in replacements.items():
+        for prefix, label, icon, timestamp in timestamps:
+            if line.startswith((prefix, icon + prefix, label, icon + label)):
+                line = icon + label + _close_label(timestamp)
+                break
+        for prefix, icon in styles.items():
             if line.startswith(prefix):
-                line = replacement
+                line = icon + line
                 break
         lines.append(line)
     return "\n".join(lines)
@@ -58,10 +68,10 @@ def format_alert(symbol, signal):
     timing = "الشرطان في الشمعة نفسها."
     if signal.rsi_event_close_time != signal.stoch_event_close_time:
         timing = "الشرطان في شمعتين متتاليتين."
-    return (
+    message = (
         f"📈 {symbol}\n"
         "بايننس سبوت • فريم 4 ساعات • شموع مغلقة\n"
-        f"إغلاق الإشارة: {_close_label(signal.close_time)}\n"
+        f"إغلاق شمعة 4h: {_close_label(signal.close_time)}\n"
         f"قيم آخر إغلاق:\n"
         f"RSI (14): {signal.rsi_previous:.2f} → {signal.rsi_current:.2f}\n"
         f"K: {signal.k_previous:.2f} → {signal.k_current:.2f}\n"
@@ -70,6 +80,8 @@ def format_alert(symbol, signal):
         f"تقاطع K فوق D: {_close_label(signal.stoch_event_close_time)}\n"
         f"{timing}"
     )
+    return _refresh_alert_times(message, signal.close_time,
+                                signal.rsi_event_close_time, signal.stoch_event_close_time)
 
 
 class AlertStore:

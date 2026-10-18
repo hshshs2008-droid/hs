@@ -37,7 +37,7 @@ class ReportText(HTMLParser):
 def visible_report(page):
     parser = ReportText()
     parser.feed(page)
-    return "".join(parser.parts)
+    return "".join(parser.parts).replace("\u200e", "")
 
 
 class HistoryTests(unittest.TestCase):
@@ -181,8 +181,10 @@ class HistoryTests(unittest.TestCase):
             self.assertIn("<pre>", page)
             for line in visible_report(page).splitlines():
                 cells = [cell.strip() for cell in line.split("│")[1:-1]]
-                if len(cells) == 6 and cells[0].isdigit():
+                if len(cells) == 4 and cells[0].isdigit():
                     listed[cells[1]] += 1
+                    self.assertRegex(cells[2], r"^\d{4}-\d{2}-\d{2}$")
+                    self.assertRegex(cells[3], r"^\(\d{2}:\d{2}\)$")
         self.assertEqual(listed, Counter(symbol for symbol, signal in matches))
         self.assertIn("عدد الإشارات: 512", pages[0])
         self.assertIn("COIN0000USDT", pages[0])
@@ -199,7 +201,12 @@ class HistoryTests(unittest.TestCase):
                 self.assertNotIn("الرياض", text)
                 self.assertIn(f"2026-{month:02d}-15", text)
                 self.assertIn(expected, text)
-                self.assertIn("21.00", text)
+                self.assertNotIn("RSI", text)
+                self.assertNotIn("ستوكاست", text)
+                table_rows = [[cell.strip() for cell in line.split("│")[1:-1]]
+                              for line in text.splitlines() if "│" in line]
+                self.assertEqual(table_rows[0], ["مسلسل", "العملة", "التاريخ", "الوقت"])
+                self.assertEqual(table_rows[1], ["1", "BTCUSDT", f"2026-{month:02d}-15", expected])
                 self.assertIn("┌", text)
                 self.assertIn("└", text)
 
@@ -215,7 +222,7 @@ class HistoryTests(unittest.TestCase):
         self.assertIn("<failed&>", "".join(parser.parts))
         self.assertNotIn("A<B&USDT", page)
 
-    def test_date_groups_repeat_on_every_page_without_losing_wide_symbols(self):
+    def test_date_column_repeats_on_every_page_without_losing_wide_symbols(self):
         newer = int(datetime(2026, 1, 15, 0, tzinfo=timezone.utc).timestamp() * 1000) - 1
         older = newer - FOUR_HOURS_MS
         matches = tuple((f"币安人生{index:03d}USDT", signal_at(newer if index % 2 else older))
@@ -223,7 +230,7 @@ class HistoryTests(unittest.TestCase):
         result = HistoryResult(newer + 60001, newer, 100, 100, matches, True, {})
         pages = format_history(result)
         self.assertGreater(len(pages), 1)
-        self.assertTrue(all("📅 2026-01-" in visible_report(page) for page in pages))
+        self.assertTrue(all("التاريخ" in visible_report(page) for page in pages))
         text = "\n".join(visible_report(page) for page in pages)
         for symbol, signal in matches:
             self.assertEqual(text.count(symbol), 1)
