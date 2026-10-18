@@ -361,7 +361,8 @@ class HistoryTests(unittest.TestCase):
                 self.assertNotIn("RSI", text)
                 self.assertNotIn("ستوكاست", text)
                 self.assertIn(f"01. BTC/USDT ✅ 2026-{month:02d}-15 {expected}", text)
-                self.assertIn('href="https://www.binance.com/en/trade/BTC_USDT"', page)
+                self.assertIn("<code>BTC/USDT</code>", page)
+                self.assertNotIn("<a ", page)
                 self.assertNotIn("<pre>", page)
                 self.assertNotIn("│", text)
 
@@ -372,8 +373,8 @@ class HistoryTests(unittest.TestCase):
         page = format_history(result)[0]
         parser = ReportText()
         parser.feed(page)
-        self.assertEqual(set(parser.tags), {"b", "a", "code"})
-        self.assertEqual(parser.links, ["https://www.binance.com/en/trade/A%3CB%26_USDT"])
+        self.assertEqual(set(parser.tags), {"b", "code"})
+        self.assertEqual(parser.links, [])
         self.assertIn("A<B&/USDT", "".join(parser.parts))
         self.assertIn("<failed&>", "".join(parser.parts))
         self.assertNotIn("A<B&USDT", page)

@@ -7,7 +7,6 @@ from html import escape
 import logging
 import threading
 import time
-from urllib.parse import quote
 
 from alerts import AlertDeliveryError, CLOSE_GRACE_MS, DELIVERY_SPACING_SECONDS, DISPLAY_TZ
 from indicators import Signal, entry_signal
@@ -60,13 +59,8 @@ def _time_label(timestamp):
 
 def _signal_row(index, symbol, signal):
     local = datetime.fromtimestamp((signal.close_time + 1) / 1000, DISPLAY_TZ)
-    if symbol.endswith("USDT"):
-        base = symbol[:-4]
-        label = escape(base + "/USDT")
-        url = "https://www.binance.com/en/trade/" + quote(base, safe="") + "_USDT"
-        coin = f'<a href="{escape(url, quote=True)}">{label}</a>'
-    else:
-        coin = escape(symbol)
+    label = symbol[:-4] + "/USDT" if symbol.endswith("USDT") else symbol
+    coin = f"<code>{escape(label)}</code>"
     return (f'<code>{index:02d}.</code> {coin} ✅ '
             f'<code>{local:%Y-%m-%d} ({local:%H:%M})</code>')
 
@@ -78,7 +72,7 @@ def _message_units(text):
 
 
 def format_history(result):
-    """Render one linked coin per line, paginated without losing any entry."""
+    """Render one copyable coin per line, paginated without losing any entry."""
     cutoff = result.as_of_ms - DAY_MS
     matches = sorted(
         ((symbol, signal) for symbol, signal in result.matches
