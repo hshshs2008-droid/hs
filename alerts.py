@@ -238,6 +238,23 @@ class AlertStore:
     def set_status(self, status):
         self._set_metadata("status", status)
 
+    def get_history_cache(self):
+        try:
+            return self._metadata("history_reports", {})
+        except (ValueError, TypeError):
+            # A corrupt report must not prevent the next refresh replacing it.
+            return {}
+
+    def save_history_cache(self, kind, payload):
+        if kind not in ("complete", "partial"):
+            raise ValueError("Invalid history cache kind.")
+        with self._lock:
+            reports = self.get_history_cache()
+            if not isinstance(reports, dict):
+                reports = {}
+            reports[kind] = payload
+            self._set_metadata("history_reports", reports)
+
     def get_update_offset(self):
         return self._metadata("update_offset", 0)
 

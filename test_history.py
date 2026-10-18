@@ -1,12 +1,15 @@
 from collections import Counter
 from datetime import datetime, timezone
 from html.parser import HTMLParser
+import re
 import threading
 import time
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
-from alerts import AlertDeliveryError, CLOSE_GRACE_MS
+from alerts import AlertDeliveryError, AlertStore, CLOSE_GRACE_MS
 from history import DAY_MS, HistoryResult, HistoryService, format_history, historical_signals
 from indicators import Signal
 from market import Candle, FOUR_HOURS_MS, MarketError
@@ -26,12 +29,15 @@ class ReportText(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.parts = []
         self.tags = []
+        self.links = []
 
     def handle_data(self, text):
         self.parts.append(text)
 
     def handle_starttag(self, tag, attrs):
         self.tags.append(tag)
+        if tag == "a":
+            self.links.append(dict(attrs)["href"])
 
 
 def visible_report(page):
@@ -57,6 +63,156 @@ class HistoryTests(unittest.TestCase):
 
     def advance(self, seconds):
         self.now += seconds
+
+    def durable_store(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        store = AlertStore(Path(folder.name) / "alerts.sqlite3")
+        self.addCleanup(store.close)
+        return store
+
+    @patch("history.historical_signals")
+    def test_persisted_report_survives_service_and_database_reopen_without_network(self, detector):
+        store = self.durable_store()
+        store.subscribe(42, 123)
+        store.set_update_offset(456)
+        self.service.store = store
+        detector.return_value = [signal_at(self.target)]
+        result = self.service.scan_once()
+        self.assertTrue(result.complete)
+        self.assertEqual(store.get_update_offset(), 456)
+        self.assertEqual(store.subscribers(), [(42, 123)])
+        self.assertEqual(store._db.execute("SELECT COUNT(*) FROM signals").fetchone()[0], 0)
+        self.assertEqual(store._db.execute("SELECT COUNT(*) FROM checkpoints").fetchone()[0], 0)
+        # Use a separate connection to prove that the data is committed to disk.
+        reopened = AlertStore(store._db.execute("PRAGMA database_list").fetchone()[2])
+        self.addCleanup(reopened.close)
+        offline = Mock()
+        restored = HistoryService(offline, self.sender, self.stop, request_delay=0,
+                                  clock=lambda: self.now, store=reopened)
+        self.addCleanup(restored.join, 2)
+        cached = restored.cached_result()
+        self.assertEqual(cached.matches, result.matches)
+        self.assertEqual(cached.cached_at_ms, result.as_of_ms)
+        self.assertTrue(restored.request(1))
+        self.wait_for(lambda: self.sender.called and not restored._active)
+        self.assertIn("BTC/USDT", self.sender.call_args.args[1])
+        self.assertIn("آخر تحديث للتقرير", self.sender.call_args.args[1])
+        self.assertEqual(offline.mock_calls, [])
+        self.stop.set()
+        restored.join(2)
+
+    @patch("history.historical_signals", return_value=[])
+    def test_background_warms_cache_without_any_report_request(self, detector):
+        self.service.store = self.durable_store()
+        self.assertTrue(self.service.start_background())
+        self.assertFalse(self.service.start_background())
+        self.wait_for(lambda: "complete" in self.service.store.get_history_cache())
+        self.sender.assert_not_called()
+        self.assertEqual(self.client.candles.call_count, 1)
+        self.assertTrue(self.service.cached_result().complete)
+        self.assertTrue(self.service.is_alive())
+        self.shutdown()
+        self.assertFalse(self.service.is_alive())
+
+    @patch("history.historical_signals", return_value=[])
+    def test_cached_report_is_delivered_while_next_background_scan_is_blocked(self, detector):
+        self.service.scan_once()
+        self.now += FOUR_HOURS_MS / 1000
+        self.server_time += FOUR_HOURS_MS
+        self.target += FOUR_HOURS_MS
+        entered, release = threading.Event(), threading.Event()
+
+        def blocking_candles(*args):
+            entered.set()
+            release.wait(timeout=2)
+            return candles_ending(self.target)
+
+        self.client.candles.side_effect = blocking_candles
+        self.service.start_background()
+        try:
+            self.assertTrue(entered.wait(timeout=1))
+            self.assertTrue(self.service.request(1))
+            self.wait_for(lambda: self.sender.called)
+            text = self.sender.call_args.args[1]
+            self.assertIn("التحديث في الخلفية", text)
+            self.assertNotIn("لم تظهر إشارات مطابقة", text)
+            self.assertEqual(self.client.candles.call_count, 2)
+        finally:
+            release.set()
+
+    @patch("history.historical_signals", return_value=[])
+    def test_old_saved_report_does_not_claim_an_empty_current_window_is_complete(self, detector):
+        self.service.scan_once()
+        self.now += (DAY_MS + FOUR_HOURS_MS) / 1000
+        snapshot = self.service.cached_result()
+        self.assertFalse(snapshot.complete)
+        self.assertTrue(snapshot.refreshing)
+        self.assertEqual(snapshot.matches, ())
+        text = format_history(snapshot)[0]
+        self.assertIn("آخر تحديث للتقرير", text)
+        self.assertIn("التحديث في الخلفية", text)
+        self.assertNotIn("لم تظهر إشارات مطابقة", text)
+
+    def test_invalid_saved_report_is_ignored_and_can_be_replaced(self):
+        store = self.durable_store()
+        store.save_history_cache("complete", {"version": 1, "result": {"matches": []}})
+        with self.assertLogs("history", level="WARNING"):
+            service = HistoryService(self.client, self.sender, self.stop, request_delay=0,
+                                     clock=lambda: self.now, store=store)
+        self.assertIsNone(service.cached_result())
+        self.assertTrue(service.scan_once().complete)
+        self.assertTrue(service.cached_result().complete)
+
+    @patch("history.historical_signals", return_value=[])
+    def test_invalid_saved_json_can_be_replaced_by_background_refresh(self, detector):
+        store = self.durable_store()
+        with store._db:
+            store._db.execute("INSERT INTO metadata(key, value) VALUES ('history_reports', '{broken')")
+        self.service.store = store
+        self.assertEqual(store.get_history_cache(), {})
+        self.assertTrue(self.service.scan_once().complete)
+        self.assertTrue(store.get_history_cache()["complete"]["result"]["complete"])
+
+    @patch("history.historical_signals", return_value=[])
+    def test_fresh_persisted_report_skips_boot_rescan(self, detector):
+        store = self.durable_store()
+        self.service.store = store
+        self.service.scan_once()
+        offline = Mock()
+        service = HistoryService(offline, self.sender, self.stop, request_delay=0,
+                                 clock=lambda: self.now, store=store)
+        # Run a single scheduling iteration without a timer or real network.
+        with patch.object(self.stop, "wait", side_effect=lambda delay: self.stop.set()) as wait:
+            service._run_background()
+        self.assertEqual(offline.mock_calls, [])
+        self.assertGreater(wait.call_args.args[0], 0)
+
+    @patch("history.historical_signals", return_value=[])
+    def test_new_closed_candle_triggers_background_refresh(self, detector):
+        self.service.scan_once()
+        self.now += FOUR_HOURS_MS / 1000
+        self.server_time += FOUR_HOURS_MS
+        self.target += FOUR_HOURS_MS
+        with patch.object(self.stop, "wait", side_effect=lambda delay: self.stop.set()):
+            self.service._run_background()
+        self.assertEqual(self.client.candles.call_count, 2)
+        self.assertEqual(self.service._cache.target_close_time, self.target)
+        self.assertTrue(self.service.cached_result().complete)
+
+    def test_partial_boot_result_is_saved_but_not_reported_as_complete_after_restart(self):
+        store = self.durable_store()
+        self.service.store = store
+        self.client.server_time.side_effect = MarketError("temporary failure", status=429, retry_after=60)
+        self.assertFalse(self.service.scan_once().complete)
+        offline = Mock()
+        restored = HistoryService(offline, self.sender, self.stop, request_delay=0,
+                                  clock=lambda: self.now, store=store)
+        snapshot = restored.cached_result()
+        self.assertFalse(snapshot.complete)
+        self.assertTrue(snapshot.refreshing)
+        self.assertNotIn("لم تظهر إشارات مطابقة", format_history(snapshot)[0])
+        self.assertEqual(offline.mock_calls, [])
 
     def shutdown(self):
         self.stop.set()
@@ -177,19 +333,20 @@ class HistoryTests(unittest.TestCase):
         self.assertTrue(all(len(page.encode("utf-16-le")) // 2 <= 3500 for page in pages))
         self.assertTrue(all("إشارات تاريخية، وليست تنبيهات جديدة" in page for page in pages))
         listed = Counter()
+        serials = []
         for page in pages:
-            self.assertIn("<pre>", page)
+            self.assertNotIn("<pre>", page)
             for line in visible_report(page).splitlines():
-                cells = [cell.strip() for cell in line.split("│")[1:-1]]
-                if len(cells) == 4 and cells[0].isdigit():
-                    listed[cells[1]] += 1
-                    self.assertRegex(cells[2], r"^\d{4}-\d{2}-\d{2}$")
-                    self.assertRegex(cells[3], r"^\(\d{2}:\d{2}\)$")
+                row = re.fullmatch(r"(\d+)\. (\S+) ✅ (\d{4}-\d{2}-\d{2}) (\(\d{2}:\d{2}\))", line)
+                if row:
+                    serials.append(int(row[1]))
+                    listed[row[2].replace("/", "")] += 1
+        self.assertEqual(serials, list(range(1, 513)))
         self.assertEqual(listed, Counter(symbol for symbol, signal in matches))
         self.assertIn("عدد الإشارات: 512", pages[0])
-        self.assertIn("COIN0000USDT", pages[0])
+        self.assertIn("COIN0000/USDT", pages[0])
 
-    def test_table_uses_israel_summer_and_winter_time(self):
+    def test_list_uses_summer_and_winter_time(self):
         for month, expected in ((1, "(14:00)"), (7, "(15:00)")):
             with self.subTest(month=month):
                 close = int(datetime(2026, month, 15, 12, tzinfo=timezone.utc).timestamp() * 1000) - 1
@@ -203,12 +360,10 @@ class HistoryTests(unittest.TestCase):
                 self.assertIn(expected, text)
                 self.assertNotIn("RSI", text)
                 self.assertNotIn("ستوكاست", text)
-                table_rows = [[cell.strip() for cell in line.split("│")[1:-1]]
-                              for line in text.splitlines() if "│" in line]
-                self.assertEqual(table_rows[0], ["مسلسل", "العملة", "التاريخ", "الوقت"])
-                self.assertEqual(table_rows[1], ["1", "BTCUSDT", f"2026-{month:02d}-15", expected])
-                self.assertIn("┌", text)
-                self.assertIn("└", text)
+                self.assertIn(f"01. BTC/USDT ✅ 2026-{month:02d}-15 {expected}", text)
+                self.assertIn('href="https://www.binance.com/en/trade/BTC_USDT"', page)
+                self.assertNotIn("<pre>", page)
+                self.assertNotIn("│", text)
 
     def test_html_special_characters_remain_plain_text(self):
         result = HistoryResult(self.server_time, self.target, 1, 2,
@@ -217,12 +372,13 @@ class HistoryTests(unittest.TestCase):
         page = format_history(result)[0]
         parser = ReportText()
         parser.feed(page)
-        self.assertEqual(set(parser.tags), {"b", "pre"})
-        self.assertIn("A<B&USDT", "".join(parser.parts))
+        self.assertEqual(set(parser.tags), {"b", "a", "code"})
+        self.assertEqual(parser.links, ["https://www.binance.com/en/trade/A%3CB%26_USDT"])
+        self.assertIn("A<B&/USDT", "".join(parser.parts))
         self.assertIn("<failed&>", "".join(parser.parts))
         self.assertNotIn("A<B&USDT", page)
 
-    def test_date_column_repeats_on_every_page_without_losing_wide_symbols(self):
+    def test_list_keeps_dates_and_all_wide_symbols_on_multiple_pages(self):
         newer = int(datetime(2026, 1, 15, 0, tzinfo=timezone.utc).timestamp() * 1000) - 1
         older = newer - FOUR_HOURS_MS
         matches = tuple((f"币安人生{index:03d}USDT", signal_at(newer if index % 2 else older))
@@ -230,10 +386,10 @@ class HistoryTests(unittest.TestCase):
         result = HistoryResult(newer + 60001, newer, 100, 100, matches, True, {})
         pages = format_history(result)
         self.assertGreater(len(pages), 1)
-        self.assertTrue(all("التاريخ" in visible_report(page) for page in pages))
+        self.assertTrue(all("<pre>" not in page for page in pages))
         text = "\n".join(visible_report(page) for page in pages)
         for symbol, signal in matches:
-            self.assertEqual(text.count(symbol), 1)
+            self.assertEqual(text.count(symbol[:-4] + "/USDT"), 1)
         self.assertIn("2026-01-15", text)
         self.assertIn("2026-01-14", text)
 

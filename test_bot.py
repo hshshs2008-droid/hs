@@ -50,7 +50,8 @@ class BotTests(unittest.TestCase):
         message = "<pre>مسلسل | العملة | التاريخ | الوقت</pre>"
         bot.send_alert_message("test-token", client, 42, message, "HTML")
         client.latest_price.assert_not_called()
-        self.assertEqual(api.call_args.args[2], {"chat_id": 42, "text": message, "parse_mode": "HTML"})
+        self.assertEqual(api.call_args.args[2], {"chat_id": 42, "text": message, "parse_mode": "HTML",
+                                                  "link_preview_options": {"is_disabled": True}})
 
     @patch("bot.api")
     def test_dispatch_is_paced_after_price_lookup_and_before_telegram_request(self, api):

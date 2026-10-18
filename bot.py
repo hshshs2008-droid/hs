@@ -95,6 +95,7 @@ def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_
     payload = {"chat_id": chat_id, "text": text}
     if parse_mode is not None:
         payload["parse_mode"] = parse_mode
+        payload["link_preview_options"] = {"is_disabled": True}
     if before_send is not None:
         before_send()
     return api(token, "sendMessage", payload)
@@ -128,10 +129,15 @@ def handle_update(token, update, store=None, worker_alive=True, history=None):
             else:
                 # Acknowledge first: a failed acknowledgement must not create
                 # duplicate background jobs when the polling loop retries.
+                if history.cached_result() is not None:
+                    acknowledgement = "جارٍ عرض آخر تقرير محفوظ لآخر 24 ساعة؛ يُحدَّث التقرير في الخلفية."
+                else:
+                    acknowledgement = (
+                        "يجري تجهيز التقرير الأول لآخر 24 ساعة في الخلفية؛ قد يستغرق بضع دقائق.\n"
+                        "ستصل القائمة عند توفرها، ثم تُحفظ لتظهر بسرعة في الطلبات التالية."
+                    )
                 api(token, "sendMessage", {"chat_id": chat_id, "text": (
-                    "جارٍ تجهيز جميع إشارات آخر 24 ساعة على فريم 4h.\n"
-                    "قد يستغرق الفحص الأول بضع دقائق؛ ستصل القائمة هنا.\n"
-                    "هذه إشارات تاريخية وليست تنبيهات جديدة."
+                    acknowledgement + "\nهذه إشارات تاريخية وليست تنبيهات جديدة."
                 )})
                 history.request(chat_id)
                 return
@@ -171,6 +177,8 @@ def handle_update(token, update, store=None, worker_alive=True, history=None):
                 reply += "\nتوجد تنبيهات معلّقة تنتظر إعادة محاولة الإرسال."
             if history is not None and history.last_error:
                 reply += "\n" + history.last_error
+            if history is not None and isinstance(getattr(history, "refresh_error", None), str):
+                reply += "\n" + history.refresh_error
         api(token, "sendMessage", {"chat_id": chat_id, "text": reply})
 
 
@@ -271,7 +279,9 @@ def main():
                                              retry_after=error.retry_after) from None
 
         scanner = Scanner(client, store, send_alert)
-        history = HistoryService(client, lambda chat_id, text: send_alert(chat_id, text, "HTML"), stop)
+        history = HistoryService(client, lambda chat_id, text: send_alert(chat_id, text, "HTML"), stop,
+                                 store=store)
+        history.start_background()
         try:
             api(token, "setMyCommands", {"commands": [
                 {"command": "start", "description": "شرح البوت والفلتر"},

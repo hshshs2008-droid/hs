@@ -1,22 +1,21 @@
 """Read-only, asynchronous reports of the approved filter's recent entries."""
 
 from collections import Counter
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from html import escape
 import logging
 import threading
 import time
-import unicodedata
+from urllib.parse import quote
 
 from alerts import AlertDeliveryError, CLOSE_GRACE_MS, DELIVERY_SPACING_SECONDS, DISPLAY_TZ
-from indicators import entry_signal
+from indicators import Signal, entry_signal
 from market import FOUR_HOURS_MS, MarketError
 
 
 DAY_MS = 24 * 60 * 60 * 1000
 MAX_MESSAGE_CHARS = 3500
-TABLE_LABELS = ("مسلسل", "العملة", "التاريخ", "الوقت")
 REPORT_DELIVERY_ERROR = "تعذر إرسال تقرير الإشارات كاملاً؛ أعد /signals لاحقاً."
 REPORT_JOB_ERROR = "تعذر إكمال تقرير الإشارات؛ أعد /signals لاحقاً."
 logger = logging.getLogger(__name__)
@@ -51,39 +50,25 @@ class HistoryResult:
     complete: bool
     errors: dict
     blocked_until: float = 0
+    cached_at_ms: int | None = None
+    refreshing: bool = False
 
 
 def _time_label(timestamp):
     return datetime.fromtimestamp(timestamp / 1000, DISPLAY_TZ).strftime("%Y-%m-%d (%H:%M:%S)")
 
 
-def _display_width(text):
-    return sum(0 if unicodedata.combining(char) else
-               2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
-               for char in text)
-
-
-def _pad(text, width, right=False):
-    spaces = " " * max(0, width - _display_width(text))
-    return spaces + text if right else text + spaces
-
-
-def _table(entries, widths):
-    def border(left, middle, right):
-        return left + middle.join("─" * (width + 2) for width in widths) + right
-
-    def line(cells, header=False):
-        padded = [_pad(cell, width, right=index == 0)
-                  for index, (cell, width) in enumerate(zip(cells, widths))]
-        if header:
-            # Keep Arabic headings aligned with the left-to-right data columns.
-            padded = ["\u200e" + cell + "\u200e" for cell in padded]
-        return "│ " + " │ ".join(padded) + " │"
-
-    lines = [border("┌", "┬", "┐"), line(TABLE_LABELS, header=True), border("├", "┼", "┤")]
-    lines.extend(line(cells) for cells in entries)
-    lines.append(border("└", "┴", "┘"))
-    return "<pre>" + escape("\n".join(lines)) + "</pre>"
+def _signal_row(index, symbol, signal):
+    local = datetime.fromtimestamp((signal.close_time + 1) / 1000, DISPLAY_TZ)
+    if symbol.endswith("USDT"):
+        base = symbol[:-4]
+        label = escape(base + "/USDT")
+        url = "https://www.binance.com/en/trade/" + quote(base, safe="") + "_USDT"
+        coin = f'<a href="{escape(url, quote=True)}">{label}</a>'
+    else:
+        coin = escape(symbol)
+    return (f'<code>{index:02d}.</code> {coin} ✅ '
+            f'<code>{local:%Y-%m-%d} ({local:%H:%M})</code>')
 
 
 def _message_units(text):
@@ -93,7 +78,7 @@ def _message_units(text):
 
 
 def format_history(result):
-    """Render escaped HTML tables, paginated without losing any entry."""
+    """Render one linked coin per line, paginated without losing any entry."""
     cutoff = result.as_of_ms - DAY_MS
     matches = sorted(
         ((symbol, signal) for symbol, signal in result.matches
@@ -108,6 +93,10 @@ def format_history(result):
         f"الأزواج المفحوصة: {result.symbols_checked}/{result.symbols_total}\n"
         f"عدد الإشارات: {len(matches)}\n"
     )
+    if result.cached_at_ms is not None:
+        header_text += f"💾 آخر تحديث للتقرير: {_time_label(result.cached_at_ms)}\n"
+    if result.refreshing:
+        header_text += "⏳ التحديث في الخلفية؛ المعروض هو آخر تقرير متاح.\n"
     if not result.complete:
         header_text += "⚠️ الفحص غير مكتمل؛ النتائج المتاحة قد لا تشمل جميع الإشارات.\n"
         if result.errors:
@@ -121,36 +110,29 @@ def format_history(result):
                 "تعذر التأكد من وجود إشارات؛ أعد الطلب لاحقاً.")
         return [header + "\n" + escape(body)]
 
-    rows = []
-    for index, (symbol, signal) in enumerate(matches, 1):
-        local = datetime.fromtimestamp((signal.close_time + 1) / 1000, DISPLAY_TZ)
-        rows.append((str(index), symbol, local.strftime("%Y-%m-%d"), local.strftime("(%H:%M)")))
-    widths = tuple(max(_display_width(label), *(_display_width(cells[index]) for cells in rows))
-                   for index, label in enumerate(TABLE_LABELS))
-    prefix = header
-    # Table borders/headers and markup all count toward the page limit.
-    # Leave room for final page numbers before appending the next whole row.
+    rows = [_signal_row(index, symbol, signal)
+            for index, (symbol, signal) in enumerate(matches, 1)]
     groups = []
     current = []
     for row in rows:
         candidate = current + [row]
-        if current and _message_units(prefix + _table(candidate, widths)) + 64 > MAX_MESSAGE_CHARS:
+        if current and _message_units(header + "\n".join(candidate)) + 64 > MAX_MESSAGE_CHARS:
             groups.append(current)
             current = []
         current.append(row)
-        if _message_units(prefix + _table(current, widths)) + 64 > MAX_MESSAGE_CHARS:
-            raise ValueError("A historical table row exceeds the message limit.")
+        if _message_units(header + "\n".join(current)) + 64 > MAX_MESSAGE_CHARS:
+            raise ValueError("A historical signal row exceeds the message limit.")
     if current:
         groups.append(current)
-    return [prefix + f"<b>الجزء {index}/{len(groups)}</b>\n\n" + _table(group, widths)
+    return [header + f"<b>الجزء {index}/{len(groups)}</b>\n\n" + "\n".join(group)
             for index, group in enumerate(groups, 1)]
 
 
 class HistoryService:
-    """One lazily-started worker, with coalesced requests and in-memory cache."""
+    """Background refresh with durable snapshots and coalesced report delivery."""
 
     def __init__(self, client, send_result, stop_event, request_delay=0.15,
-                 *, clock=time.time, sleep=time.sleep):
+                 *, clock=time.time, sleep=time.sleep, store=None):
         if request_delay < 0:
             raise ValueError("Request delay must be nonnegative.")
         self.client = client
@@ -159,11 +141,13 @@ class HistoryService:
         self.request_delay = request_delay
         self.clock = clock
         self.sleep = sleep
+        self.store = store
         self._condition = threading.Condition()
         self._scan_lock = threading.Lock()
         self._waiting = set()
         self._active = set()
         self._thread = None
+        self._background = None
         self._cache = None
         self._cache_key = None
         self._partial = None
@@ -171,8 +155,116 @@ class HistoryService:
         self._delivery_blocked_until = 0
         self._next_delivery_at = 0
         self.last_error = None
+        self.refresh_error = None
         self.last_error_ms = None
         self.heartbeat_ms = 0
+        self._saved_complete = None
+        self._saved_partial = None
+        self._restore_cache()
+
+    def _restore_cache(self):
+        if self.store is None:
+            return
+        try:
+            reports = self.store.get_history_cache()
+            if not isinstance(reports, dict):
+                return
+            for kind in ("complete", "partial"):
+                try:
+                    payload = reports.get(kind)
+                    if not payload or payload.get("version") != 1:
+                        continue
+                    data = dict(payload["result"])
+                    data["matches"] = tuple((symbol, Signal(**signal))
+                                             for symbol, signal in data["matches"])
+                    result = HistoryResult(**data)
+                    if (not isinstance(result.as_of_ms, int) or isinstance(result.as_of_ms, bool)
+                            or not 0 < result.as_of_ms <= int(self.clock() * 1000) + FOUR_HOURS_MS
+                            or not isinstance(result.target_close_time, int)
+                            or not 0 < result.target_close_time < result.as_of_ms
+                            or (result.target_close_time + 1) % FOUR_HOURS_MS
+                            or result.complete is not (kind == "complete")
+                            or not isinstance(result.errors, dict)):
+                        raise ValueError("Invalid cached report.")
+                    for symbol, signal in result.matches:
+                        if (not isinstance(symbol, str) or not symbol.isalnum() or len(symbol) > 128
+                                or not isinstance(signal.close_time, int) or signal.close_time < 0):
+                            raise ValueError("Invalid cached signal.")
+                    if kind == "complete":
+                        key = payload.get("cache_key")
+                        if key is not None:
+                            if (len(key) != 2 or key[0] != result.target_close_time
+                                    or not isinstance(key[1], (list, tuple))
+                                    or not all(isinstance(symbol, str) for symbol in key[1])):
+                                raise ValueError("Invalid cached universe.")
+                            self._cache_key = (key[0], tuple(key[1]))
+                        self._cache = result
+                        self._saved_complete = result
+                    else:
+                        self._partial = result
+                        self._saved_partial = result
+                except (TypeError, ValueError, KeyError, AttributeError, IndexError):
+                    logger.warning("Ignoring invalid saved history report.")
+        except Exception as error:
+            logger.warning("Cannot read saved history; error_type=%s", type(error).__name__)
+
+    def _persist_cache(self):
+        if self.store is None:
+            return
+        for kind, result, saved in (("complete", self._cache, "_saved_complete"),
+                                    ("partial", self._partial, "_saved_partial")):
+            if result is not None and result is not getattr(self, saved):
+                self.store.save_history_cache(kind, {
+                    "version": 1, "result": asdict(result),
+                    "cache_key": self._cache_key if kind == "complete" else None,
+                })
+                setattr(self, saved, result)
+
+    def cached_result(self):
+        """Return a snapshot immediately, including while a refresh is busy."""
+        result = self._cache if self._cache is not None else self._partial
+        if result is None:
+            return None
+        now = int(self.clock() * 1000)
+        target = ((now - CLOSE_GRACE_MS) // FOUR_HOURS_MS) * FOUR_HOURS_MS - 1
+        current = result.target_close_time >= target
+        return replace(self._for_now(result, now), cached_at_ms=result.as_of_ms,
+                       complete=result.complete and current,
+                       refreshing=not current or not result.complete)
+
+    def start_background(self):
+        with self._condition:
+            if self.stop.is_set() or (self._background is not None and self._background.is_alive()):
+                return False
+            self._background = threading.Thread(target=self._run_background,
+                                                name="history-refresh", daemon=True)
+            self._background.start()
+            return True
+
+    def _run_background(self):
+        while not self.stop.is_set():
+            delay = 30
+            try:
+                snapshot = self.cached_result()
+                if snapshot is not None and snapshot.complete:
+                    self._persist_cache()
+                    self.refresh_error = None
+                    next_close = snapshot.target_close_time + 1 + FOUR_HOURS_MS + CLOSE_GRACE_MS
+                    delay = max(1, min(60, next_close / 1000 - self.clock()))
+                else:
+                    result = self.scan_once()
+                    if result.complete:
+                        self.refresh_error = None
+                        delay = 0
+                    else:
+                        self.refresh_error = "تعذر إكمال تحديث تقرير الإشارات؛ ستتم إعادة المحاولة تلقائياً."
+                        delay = max(30, min(60, result.blocked_until - self.clock()))
+                self.heartbeat_ms = int(self.clock() * 1000)
+            except Exception as error:
+                self.last_error_ms = int(self.clock() * 1000)
+                self.refresh_error = "تعذر تحديث تقرير الإشارات؛ ستتم إعادة المحاولة تلقائياً."
+                logger.error("Background history refresh will retry; error_type=%s", type(error).__name__)
+            self.stop.wait(delay)
 
     def request(self, chat_id):
         """Schedule without blocking polling; return False for a duplicate."""
@@ -188,14 +280,18 @@ class HistoryService:
 
     def is_alive(self):
         with self._condition:
-            return self._thread is not None and self._thread.is_alive()
+            return any(thread is not None and thread.is_alive()
+                       for thread in (self._thread, self._background))
 
     def join(self, timeout=None):
         with self._condition:
-            thread = self._thread
+            threads = (self._thread, self._background)
             self._condition.notify_all()
-        if thread is not None:
-            thread.join(timeout)
+        deadline = None if timeout is None else time.monotonic() + timeout
+        for thread in threads:
+            if thread is not None:
+                remaining = None if deadline is None else max(0, deadline - time.monotonic())
+                thread.join(remaining)
 
     def _pause(self, delay):
         # Short waits make both long Retry-After cooldowns and shutdown
@@ -234,9 +330,17 @@ class HistoryService:
                                      if as_of_ms - DAY_MS < signal.close_time <= as_of_ms))
 
     def scan_once(self):
-        """Fetch one report without subscriptions, delivery, or database writes."""
+        """Refresh the report cache without changing live alert records."""
         with self._scan_lock:
-            return self._scan_once()
+            # A cold request may have waited behind the initial background
+            # scan. Use its newly available snapshot rather than scan twice.
+            if self._background is not None and threading.current_thread() is not self._background:
+                snapshot = self.cached_result()
+                if snapshot is not None:
+                    return snapshot
+            result = self._scan_once()
+            self._persist_cache()
+            return result
 
     def _scan_once(self):
         now = int(self.clock() * 1000)
@@ -324,7 +428,9 @@ class HistoryService:
                 failed = False
                 self.heartbeat_ms = int(self.clock() * 1000)
                 try:
-                    result = self.scan_once()
+                    result = self.cached_result()
+                    if result is None:
+                        result = self.scan_once()
                     with self._condition:
                         # Chats requesting during the cold scan share its result.
                         recipients.update(self._waiting)
