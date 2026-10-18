@@ -140,8 +140,8 @@ def handle_update(token, update, store=None, worker_alive=True, history=None):
             last_scan = state.get("last_scan_ms")
             if isinstance(last_scan, (int, float)) and not isinstance(last_scan, bool):
                 from alerts import DISPLAY_TZ
-                label = datetime.fromtimestamp(last_scan / 1000, DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S")
-                reply += f"\nآخر دورة فحص: {label} (بتوقيت إسرائيل)"
+                label = datetime.fromtimestamp(last_scan / 1000, DISPLAY_TZ).strftime("%Y-%m-%d (%H:%M:%S)")
+                reply += f"\nآخر دورة فحص: {label}"
             if state.get("pending", 0):
                 reply += "\nتوجد تنبيهات معلّقة تنتظر إعادة محاولة الإرسال."
             if history is not None and history.last_error:

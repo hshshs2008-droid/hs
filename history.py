@@ -53,7 +53,7 @@ class HistoryResult:
 
 
 def _time_label(timestamp):
-    return datetime.fromtimestamp(timestamp / 1000, DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.fromtimestamp(timestamp / 1000, DISPLAY_TZ).strftime("%Y-%m-%d (%H:%M:%S)")
 
 
 def _display_width(text):
@@ -117,7 +117,6 @@ def format_history(result):
         "بايننس سبوت • جميع أزواج USDT • فريم 4 ساعات\n"
         f"الفترة: {_time_label(cutoff)} إلى {_time_label(result.as_of_ms)}\n"
         f"آخر إغلاق معتمد: {_time_label(result.target_close_time + 1)}\n"
-        "جميع الأوقات بتوقيت إسرائيل\n"
         f"الأزواج المفحوصة: {result.symbols_checked}/{result.symbols_total}\n"
         f"عدد الإشارات: {len(matches)}\n"
     )
@@ -138,7 +137,7 @@ def format_history(result):
     for index, (symbol, signal) in enumerate(matches, 1):
         local = datetime.fromtimestamp((signal.close_time + 1) / 1000, DISPLAY_TZ)
         rows.append((local.strftime("%Y-%m-%d"), (
-            str(index), symbol, local.strftime("%H:%M"),
+            str(index), symbol, local.strftime("(%H:%M)"),
             f"{signal.rsi_current:.2f}", f"{signal.k_current:.2f}", f"{signal.d_current:.2f}",
         )))
     labels = ("#", "Pair", "Time", "RSI", "K", "D")

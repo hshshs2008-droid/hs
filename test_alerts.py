@@ -321,23 +321,23 @@ class ScannerTests(unittest.TestCase):
         self.assertEqual(delays, [0.15, 0.15, 0.15])
         text = format_alert("BTCUSDT", signal_at(self.target, adjacent=True))
         self.assertIn("شمعتين متتاليتين", text)
-        self.assertIn("بتوقيت إسرائيل", text)
+        self.assertNotIn("بتوقيت", text)
         self.assertIn("RSI (14): 19.00 → 21.00", text)
 
     def test_israel_timezone_handles_winter_summer_and_both_dst_transitions(self):
         cases = [
-            ("2026-01-15T12:00:00+00:00", "2026-01-15 14:00"),
-            ("2026-07-15T12:00:00+00:00", "2026-07-15 15:00"),
-            ("2026-03-26T23:59:00+00:00", "2026-03-27 01:59"),
-            ("2026-03-27T00:00:00+00:00", "2026-03-27 03:00"),
-            ("2026-10-24T22:59:00+00:00", "2026-10-25 01:59"),
-            ("2026-10-24T23:00:00+00:00", "2026-10-25 01:00"),
+            ("2026-01-15T12:00:00+00:00", "2026-01-15 (14:00)"),
+            ("2026-07-15T12:00:00+00:00", "2026-07-15 (15:00)"),
+            ("2026-03-26T23:59:00+00:00", "2026-03-27 (01:59)"),
+            ("2026-03-27T00:00:00+00:00", "2026-03-27 (03:00)"),
+            ("2026-10-24T22:59:00+00:00", "2026-10-25 (01:59)"),
+            ("2026-10-24T23:00:00+00:00", "2026-10-25 (01:00)"),
         ]
         for utc_time, expected in cases:
             with self.subTest(utc_time=utc_time):
                 close_time = int(datetime.fromisoformat(utc_time).timestamp() * 1000) - 1
                 text = format_alert("BTCUSDT", signal_at(close_time))
-                self.assertIn(f"إغلاق الإشارة: {expected} (بتوقيت إسرائيل)", text)
+                self.assertIn(f"إغلاق الإشارة: {expected}", text.splitlines())
                 self.assertIn(f"عبور RSI فوق 20: {expected}", text)
                 self.assertIn(f"تقاطع K فوق D: {expected}", text)
 
@@ -346,7 +346,9 @@ class ScannerTests(unittest.TestCase):
         self.store.subscribe(1, 0)
         self.store.record("BTCUSDT", close_time, signal_at(close_time))
         expected = format_alert("BTCUSDT", signal_at(close_time))
-        legacy = expected.replace("2026-01-15 14:00", "2026-01-15 15:00").replace("بتوقيت إسرائيل", "بتوقيت الرياض")
+        legacy = expected.replace("2026-01-15 (14:00)", "2026-01-15 15:00")
+        legacy = legacy.replace("إغلاق الإشارة: 2026-01-15 15:00",
+                                "إغلاق الإشارة: 2026-01-15 15:00 (بتوقيت الرياض)")
         with self.store._lock, self.store._db:
             self.store._db.execute("UPDATE signals SET message = ? WHERE symbol = ? AND close_time = ?",
                                    (legacy, "BTCUSDT", close_time))

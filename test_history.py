@@ -188,14 +188,14 @@ class HistoryTests(unittest.TestCase):
         self.assertIn("COIN0000USDT", pages[0])
 
     def test_table_uses_israel_summer_and_winter_time(self):
-        for month, expected in ((1, "14:00"), (7, "15:00")):
+        for month, expected in ((1, "(14:00)"), (7, "(15:00)")):
             with self.subTest(month=month):
                 close = int(datetime(2026, month, 15, 12, tzinfo=timezone.utc).timestamp() * 1000) - 1
                 result = HistoryResult(close + 60001, close, 1, 1,
                                        (("BTCUSDT", signal_at(close)),), True, {})
                 page = format_history(result)[0]
                 text = visible_report(page)
-                self.assertIn("بتوقيت إسرائيل", text)
+                self.assertNotIn("بتوقيت", text)
                 self.assertNotIn("الرياض", text)
                 self.assertIn(f"2026-{month:02d}-15", text)
                 self.assertIn(expected, text)

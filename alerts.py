@@ -30,13 +30,13 @@ class AlertDeliveryError(Exception):
 
 def _close_label(close_time):
     # Binance timestamps the last millisecond, rather than the next boundary.
-    return datetime.fromtimestamp((close_time + 1) / 1000, DISPLAY_TZ).strftime("%Y-%m-%d %H:%M")
+    return datetime.fromtimestamp((close_time + 1) / 1000, DISPLAY_TZ).strftime("%Y-%m-%d (%H:%M)")
 
 
 def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_close_time):
     """Refresh queued messages without rewriting stored indicators or events."""
     replacements = {
-        "إغلاق الإشارة: ": f"إغلاق الإشارة: {_close_label(close_time)} (بتوقيت إسرائيل)",
+        "إغلاق الإشارة: ": f"إغلاق الإشارة: {_close_label(close_time)}",
         "عبور RSI فوق 20: ": f"عبور RSI فوق 20: {_close_label(rsi_event_close_time)}",
         "تقاطع K فوق D: ": f"تقاطع K فوق D: {_close_label(stoch_event_close_time)}",
     }
@@ -57,7 +57,7 @@ def format_alert(symbol, signal):
     return (
         f"🔔 تحقق فلتر الدخول: {symbol}\n"
         "بايننس سبوت • فريم 4 ساعات • شموع مغلقة\n"
-        f"إغلاق الإشارة: {_close_label(signal.close_time)} (بتوقيت إسرائيل)\n"
+        f"إغلاق الإشارة: {_close_label(signal.close_time)}\n"
         f"قيم آخر إغلاق:\n"
         f"RSI (14): {signal.rsi_previous:.2f} → {signal.rsi_current:.2f}\n"
         f"K: {signal.k_previous:.2f} → {signal.k_current:.2f}\n"
