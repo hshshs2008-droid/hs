@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from alerts import AlertDeliveryError, AlertStore, CLOSE_GRACE_MS
-from history import DAY_MS, HistoryResult, HistoryService, format_history, historical_signals
+from history import HISTORY_WINDOW_MS, HistoryResult, HistoryService, format_history, historical_signals
 from indicators import Signal
 from market import Candle, FOUR_HOURS_MS, MarketError
 
@@ -144,7 +144,7 @@ class HistoryTests(unittest.TestCase):
     @patch("history.historical_signals", return_value=[])
     def test_old_saved_report_does_not_claim_an_empty_current_window_is_complete(self, detector):
         self.service.scan_once()
-        self.now += (DAY_MS + FOUR_HOURS_MS) / 1000
+        self.now += (HISTORY_WINDOW_MS + FOUR_HOURS_MS) / 1000
         snapshot = self.service.cached_result()
         self.assertFalse(snapshot.complete)
         self.assertTrue(snapshot.refreshing)
@@ -156,7 +156,7 @@ class HistoryTests(unittest.TestCase):
 
     def test_invalid_saved_report_is_ignored_and_can_be_replaced(self):
         store = self.durable_store()
-        store.save_history_cache("complete", {"version": 1, "result": {"matches": []}})
+        store.save_history_cache("complete", {"version": 2, "window_ms": HISTORY_WINDOW_MS, "result": {"matches": []}})
         with self.assertLogs("history", level="WARNING"):
             service = HistoryService(self.client, self.sender, self.stop, request_delay=0,
                                      clock=lambda: self.now, store=store)
@@ -227,9 +227,9 @@ class HistoryTests(unittest.TestCase):
         self.fail("History worker did not finish in time.")
 
     @patch("history.entry_signal")
-    def test_exact_24_hour_boundary_excludes_old_and_future_entries(self, detector):
-        as_of = 3 * DAY_MS
-        cutoff = as_of - DAY_MS
+    def test_exact_48_hour_boundary_excludes_old_and_future_entries(self, detector):
+        as_of = 3 * HISTORY_WINDOW_MS
+        cutoff = as_of - HISTORY_WINDOW_MS
         times = [cutoff - 1, cutoff, cutoff + 1, as_of, as_of + 1]
         candles = [Candle(end - 1, end, 10, 11, 9, 10) for end in times]
         detector.side_effect = lambda prefix: signal_at(prefix[-1].close_time)
@@ -238,8 +238,45 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(detector.call_count, 2)
         self.assertEqual(detector.call_args.args[0][-1].close_time, as_of)
 
+    @patch("history.entry_signal")
+    def test_window_includes_36_hour_old_signals_and_excludes_49_hour_old_signals(self, detector):
+        hour_ms = 60 * 60 * 1000
+        as_of = self.server_time
+        times = [as_of - 49 * hour_ms, as_of - 36 * hour_ms, as_of - 4 * hour_ms]
+        candles = [Candle(end - 1, end, 10, 11, 9, 10) for end in times]
+        detector.side_effect = lambda prefix: signal_at(prefix[-1].close_time)
+        matches = historical_signals(candles, as_of)
+        self.assertEqual([signal.close_time for signal in matches], times[1:])
+        report = HistoryResult(as_of, self.target, 1, 1,
+                               tuple(("BTCUSDT", signal) for signal in matches), True, {})
+        page = format_history(report)[0]
+        self.assertIn("إشارات آخر 48 ساعة", page)
+        self.assertIn("عدد الإشارات: 2", page)
+        self.service._cache = report
+        self.assertEqual(self.service.cached_result().matches, report.matches)
+
+    @patch("history.historical_signals")
+    def test_24_hour_saved_reports_are_rebuilt_for_48_hours(self, detector):
+        store = self.durable_store()
+        self.service.store = store
+        detector.return_value = [signal_at(self.target)]
+        self.service.scan_once()
+        original = store.get_history_cache()["complete"]
+        for version in (1, 2):
+            with self.subTest(version=version):
+                old = dict(original, version=version, window_ms=24 * 60 * 60 * 1000)
+                store.save_history_cache("complete", old)
+                restored = HistoryService(self.client, self.sender, self.stop, request_delay=0,
+                                          clock=lambda: self.now, store=store)
+                self.assertIsNone(restored.cached_result())
+                detector.return_value = [signal_at(self.target - 9 * FOUR_HOURS_MS), signal_at(self.target)]
+                result = restored.scan_once()
+                self.assertTrue(result.complete)
+                self.assertEqual(len(result.matches), 2)
+                self.assertEqual(store.get_history_cache()["complete"]["window_ms"], 48 * 60 * 60 * 1000)
+
     def test_real_matching_keeps_past_entry_after_reversal_and_adjacent_first_event_outside_window(self):
-        candles = candles_ending(self.target)
+        candles = candles_ending(self.target, count=36)
         rsis = [50] * len(candles)
         ks = [50] * len(candles)
         ds = [50] * len(candles)
@@ -306,7 +343,7 @@ class HistoryTests(unittest.TestCase):
 
     @patch("history.historical_signals", return_value=[])
     def test_cache_reused_with_rolling_cutoff_and_invalidated_after_close_grace(self, detector):
-        oldest = self.server_time - DAY_MS + 1
+        oldest = self.server_time - HISTORY_WINDOW_MS + 1
         detector.return_value = [signal_at(oldest), signal_at(self.target)]
         first = self.service.scan_once()
         self.assertEqual(len(first.matches), 2)

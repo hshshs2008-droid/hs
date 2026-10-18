@@ -13,7 +13,7 @@ from indicators import Signal, entry_signal
 from market import FOUR_HOURS_MS, MarketError
 
 
-DAY_MS = 24 * 60 * 60 * 1000
+HISTORY_WINDOW_MS = 48 * 60 * 60 * 1000
 MAX_MESSAGE_CHARS = 3500
 REPORT_DELIVERY_ERROR = "تعذر إرسال تقرير الإشارات كاملاً؛ أعد /signals لاحقاً."
 REPORT_JOB_ERROR = "تعذر إكمال تقرير الإشارات؛ أعد /signals لاحقاً."
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def historical_signals(candles, as_of_ms):
-    """Return all entry completions in (as_of - 24 hours, as_of].
+    """Return all entry completions in (as_of - 48 hours, as_of].
 
     Evaluate each eligible completed candle with its earlier warm-up history.
     A valid past entry remains a result even if indicators later reverse.
@@ -29,7 +29,7 @@ def historical_signals(candles, as_of_ms):
     if isinstance(as_of_ms, bool) or not isinstance(as_of_ms, int) or as_of_ms < 0:
         raise ValueError("History requires a nonnegative integer timestamp.")
     closed = [candle for candle in candles if candle.close_time <= as_of_ms]
-    cutoff = as_of_ms - DAY_MS
+    cutoff = as_of_ms - HISTORY_WINDOW_MS
     results = []
     for index, candle in enumerate(closed):
         if candle.close_time > cutoff:
@@ -73,7 +73,7 @@ def _message_units(text):
 
 def format_history(result):
     """Render one copyable coin per line, paginated without losing any entry."""
-    cutoff = result.as_of_ms - DAY_MS
+    cutoff = result.as_of_ms - HISTORY_WINDOW_MS
     matches = sorted(
         ((symbol, signal) for symbol, signal in result.matches
          if cutoff < signal.close_time <= result.as_of_ms),
@@ -98,7 +98,7 @@ def format_history(result):
             header_text += f"تعذر إكمال الفحص: {errors}\n"
         if result.blocked_until:
             header_text += "يلزم انتظار مهلة بايننس ثم إعادة الطلب.\n"
-    header = "<b>📊 إشارات آخر 24 ساعة</b>\n" + escape(header_text)
+    header = "<b>📊 إشارات آخر 48 ساعة</b>\n" + escape(header_text)
     if not matches:
         body = ("لم تظهر إشارات مطابقة خلال الفترة." if result.complete else
                 "تعذر التأكد من وجود إشارات؛ أعد الطلب لاحقاً.")
@@ -166,7 +166,8 @@ class HistoryService:
             for kind in ("complete", "partial"):
                 try:
                     payload = reports.get(kind)
-                    if not payload or payload.get("version") != 1:
+                    if (not payload or payload.get("version") != 2
+                            or payload.get("window_ms") != HISTORY_WINDOW_MS):
                         continue
                     data = dict(payload["result"])
                     data["matches"] = tuple((symbol, Signal(**signal))
@@ -209,7 +210,7 @@ class HistoryService:
                                     ("partial", self._partial, "_saved_partial")):
             if result is not None and result is not getattr(self, saved):
                 self.store.save_history_cache(kind, {
-                    "version": 1, "result": asdict(result),
+                    "version": 2, "window_ms": HISTORY_WINDOW_MS, "result": asdict(result),
                     "cache_key": self._cache_key if kind == "complete" else None,
                 })
                 setattr(self, saved, result)
@@ -323,7 +324,7 @@ class HistoryService:
     def _for_now(self, result, as_of_ms):
         return replace(result, as_of_ms=as_of_ms,
                        matches=tuple((symbol, signal) for symbol, signal in result.matches
-                                     if as_of_ms - DAY_MS < signal.close_time <= as_of_ms))
+                                     if as_of_ms - HISTORY_WINDOW_MS < signal.close_time <= as_of_ms))
 
     def scan_once(self):
         """Refresh the report cache without changing live alert records."""

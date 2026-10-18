@@ -27,7 +27,7 @@ WELCOME = (
     "/alerts_on — تفعيل التنبيهات في محادثة خاصة\n"
     "/alerts_off — إيقاف التنبيهات\n"
     "/status — حالة المراقبة\n"
-    "/signals — جميع إشارات آخر 24 ساعة\n"
+    "/signals — جميع إشارات آخر 48 ساعة\n"
     "/myid — رقم حسابك في تيليجرام\n"
     "التنبيهات تبدأ من الشموع التي تغلق بعد التفعيل."
 )
@@ -270,10 +270,10 @@ def handle_update(token, update, store=None, worker_alive=True, history=None):
                 # Acknowledge first: a failed acknowledgement must not create
                 # duplicate background jobs when the polling loop retries.
                 if history.cached_result() is not None:
-                    acknowledgement = "جارٍ عرض آخر تقرير محفوظ لآخر 24 ساعة؛ يُحدَّث التقرير في الخلفية."
+                    acknowledgement = "جارٍ عرض آخر تقرير محفوظ لآخر 48 ساعة؛ يُحدَّث التقرير في الخلفية."
                 else:
                     acknowledgement = (
-                        "يجري تجهيز التقرير الأول لآخر 24 ساعة في الخلفية؛ قد يستغرق بضع دقائق.\n"
+                        "يجري تجهيز التقرير الأول لآخر 48 ساعة في الخلفية؛ قد يستغرق بضع دقائق.\n"
                         "ستصل القائمة عند توفرها، ثم تُحفظ لتظهر بسرعة في الطلبات التالية."
                     )
                 api(token, "sendMessage", {"chat_id": chat_id, "text": (
@@ -433,7 +433,7 @@ def main():
         try:
             api(token, "setMyCommands", {"commands": [
                 {"command": "start", "description": "شرح البوت والفلتر"},
-                {"command": "signals", "description": "عرض جميع إشارات آخر 24 ساعة"},
+                {"command": "signals", "description": "عرض جميع إشارات آخر 48 ساعة"},
                 {"command": "alerts_on", "description": "تفعيل التنبيهات"},
                 {"command": "alerts_off", "description": "إيقاف التنبيهات"},
                 {"command": "status", "description": "حالة المراقبة والتنبيهات"},
