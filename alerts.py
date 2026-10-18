@@ -42,6 +42,8 @@ def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_
     }
     lines = []
     for line in message.splitlines():
+        if line.startswith("🔔 تحقق فلتر الدخول: "):
+            line = "🔔 " + line.removeprefix("🔔 تحقق فلتر الدخول: ")
         for prefix, replacement in replacements.items():
             if line.startswith(prefix):
                 line = replacement
@@ -55,7 +57,7 @@ def format_alert(symbol, signal):
     if signal.rsi_event_close_time != signal.stoch_event_close_time:
         timing = "الشرطان في شمعتين متتاليتين."
     return (
-        f"🔔 تحقق فلتر الدخول: {symbol}\n"
+        f"🔔 {symbol}\n"
         "بايننس سبوت • فريم 4 ساعات • شموع مغلقة\n"
         f"إغلاق الإشارة: {_close_label(signal.close_time)}\n"
         f"قيم آخر إغلاق:\n"
