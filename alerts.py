@@ -96,6 +96,8 @@ class AlertStore:
         if str(path) != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
+        self._access_enforced = False
+        self.admin_id = None
         self._db = sqlite3.connect(str(path), timeout=10, check_same_thread=False)
         self._db.execute("PRAGMA foreign_keys = ON")
         self._db.execute("PRAGMA busy_timeout = 10000")
@@ -130,14 +132,103 @@ class AlertStore:
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS access_requests (
+                    chat_id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'denied')),
+                    requested_at_ms INTEGER NOT NULL,
+                    notified INTEGER NOT NULL DEFAULT 0
+                );
             """)
 
     def close(self):
         with self._lock:
             self._db.close()
 
+    def configure_access(self, admin_id=None):
+        """Enable approvals before starting workers; never claim the first visitor."""
+        with self._lock:
+            if admin_id is not None:
+                if type(admin_id) is not int or not 0 < admin_id < 2**52:
+                    raise ValueError("TELEGRAM_ADMIN_ID must be a positive Telegram user ID.")
+                self._set_metadata("access_admin_id", admin_id)
+            saved = self._metadata("access_admin_id", None)
+            self.admin_id = saved if type(saved) is int and 0 < saved < 2**52 else None
+            self._access_enforced = True
+            if self.admin_id is not None:
+                with self._db:
+                    self._db.execute("DELETE FROM access_requests WHERE chat_id = ?", (self.admin_id,))
+
+    def access_required(self):
+        return self._access_enforced
+
+    def is_admin(self, chat_id):
+        return type(chat_id) is int and self.admin_id is not None and chat_id == self.admin_id
+
+    def can_access(self, chat_id):
+        if not self._access_enforced or self.is_admin(chat_id):
+            return True
+        with self._lock:
+            return self._db.execute(
+                "SELECT 1 FROM access_requests WHERE chat_id = ? AND status = 'approved'",
+                (chat_id,),
+            ).fetchone() is not None and self.admin_id is not None
+
+    def request_access(self, chat_id, name, requested_at_ms):
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT OR IGNORE INTO access_requests(chat_id, name, status, requested_at_ms) "
+                "VALUES (?, ?, 'pending', ?)", (chat_id, name[:160], requested_at_ms),
+            )
+            return self._db.execute(
+                "SELECT status, notified FROM access_requests WHERE chat_id = ?", (chat_id,),
+            ).fetchone()
+
+    def mark_access_notified(self, chat_id):
+        with self._lock, self._db:
+            self._db.execute("UPDATE access_requests SET notified = 1 WHERE chat_id = ?", (chat_id,))
+
+    def access_requests(self, status='pending'):
+        with self._lock:
+            return self._db.execute(
+                "SELECT chat_id, name FROM access_requests WHERE status = ? ORDER BY requested_at_ms, chat_id",
+                (status,),
+            ).fetchall()
+
+    def decide_access(self, chat_id, approve, activation_ms, *, reconsider=False):
+        """Persist the decision and subscription together; reject stale buttons."""
+        with self._lock, self._db:
+            row = self._db.execute(
+                "SELECT status FROM access_requests WHERE chat_id = ?", (chat_id,),
+            ).fetchone()
+            eligible = ('pending', 'denied') if reconsider and approve else ('pending',)
+            if not row or row[0] not in eligible or self.is_admin(chat_id):
+                return False
+            self._db.execute("UPDATE access_requests SET status = ? WHERE chat_id = ?",
+                             ('approved' if approve else 'denied', chat_id))
+            if approve:
+                # Fresh activation prevents pre-approval pending alerts leaking.
+                self._db.execute("DELETE FROM subscriptions WHERE chat_id = ?", (chat_id,))
+                self._db.execute("INSERT INTO subscriptions VALUES (?, ?)", (chat_id, activation_ms))
+            else:
+                self._db.execute("DELETE FROM subscriptions WHERE chat_id = ?", (chat_id,))
+            return True
+
+    def revoke_access(self, chat_id):
+        with self._lock, self._db:
+            if self.is_admin(chat_id):
+                return False
+            cursor = self._db.execute(
+                "UPDATE access_requests SET status = 'denied' WHERE chat_id = ? AND status = 'approved'",
+                (chat_id,),
+            )
+            self._db.execute("DELETE FROM subscriptions WHERE chat_id = ?", (chat_id,))
+            return cursor.rowcount == 1
+
     def subscribe(self, chat_id, activation_ms):
         with self._lock, self._db:
+            if not self.can_access(chat_id):
+                return False
             cursor = self._db.execute(
                 "INSERT OR IGNORE INTO subscriptions(chat_id, activation_ms) VALUES (?, ?)",
                 (chat_id, activation_ms),
@@ -151,9 +242,10 @@ class AlertStore:
 
     def subscribers(self):
         with self._lock:
-            return self._db.execute(
+            rows = self._db.execute(
                 "SELECT chat_id, activation_ms FROM subscriptions ORDER BY chat_id"
             ).fetchall()
+            return [(chat_id, activation) for chat_id, activation in rows if self.can_access(chat_id)]
 
     def checkpoint(self, symbol):
         with self._lock:
@@ -173,10 +265,11 @@ class AlertStore:
                     (symbol, signal.close_time, format_alert(symbol, signal),
                      signal.rsi_event_close_time, signal.stoch_event_close_time),
                 )
-                self._db.execute(
+                self._db.executemany(
                     """INSERT OR IGNORE INTO deliveries(chat_id, symbol, close_time)
-                       SELECT chat_id, ?, ? FROM subscriptions WHERE activation_ms <= ?""",
-                    (symbol, signal.close_time, signal.close_time),
+                       VALUES (?, ?, ?)""",
+                    [(chat_id, symbol, signal.close_time) for chat_id, activation in self.subscribers()
+                     if activation <= signal.close_time],
                 )
             self._db.execute(
                 """INSERT INTO checkpoints(symbol, close_time) VALUES (?, ?)
@@ -199,10 +292,13 @@ class AlertStore:
             rows = self._db.execute(query, parameters).fetchall()
         return [(chat_id, symbol, close_time,
                  _refresh_alert_times(message, close_time, rsi_time, stoch_time))
-                for chat_id, symbol, close_time, message, rsi_time, stoch_time in rows]
+                for chat_id, symbol, close_time, message, rsi_time, stoch_time in rows
+                if self.can_access(chat_id)]
 
     def is_pending(self, chat_id, symbol, close_time):
         with self._lock:
+            if not self.can_access(chat_id):
+                return False
             return self._db.execute(
                 """SELECT 1 FROM deliveries WHERE chat_id = ? AND symbol = ?
                    AND close_time = ? AND sent_at_ms IS NULL""",

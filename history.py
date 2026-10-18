@@ -262,6 +262,8 @@ class HistoryService:
 
     def request(self, chat_id):
         """Schedule without blocking polling; return False for a duplicate."""
+        if self.store is not None and not self.store.can_access(chat_id):
+            return False
         with self._condition:
             if self.stop.is_set() or chat_id in self._waiting or chat_id in self._active:
                 return False
@@ -387,9 +389,13 @@ class HistoryService:
     def _send_pages(self, chat_id, pages):
         for page in pages:
             while not self.stop.is_set():
+                if self.store is not None and not self.store.can_access(chat_id):
+                    return True  # Revoked requests are cancelled, not delivered.
                 wait_until = max(self._next_delivery_at, self._delivery_blocked_until)
                 if not self._pause(wait_until - self.clock()):
                     return False
+                if self.store is not None and not self.store.can_access(chat_id):
+                    return True
                 self._next_delivery_at = self.clock() + DELIVERY_SPACING_SECONDS
                 self.heartbeat_ms = int(self.clock() * 1000)
                 try:
