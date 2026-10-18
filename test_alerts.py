@@ -320,7 +320,7 @@ class ScannerTests(unittest.TestCase):
         scanner.scan_once()
         self.assertEqual(delays, [0.15, 0.15, 0.15])
         text = format_alert("BTCUSDT", signal_at(self.target, adjacent=True))
-        self.assertEqual(text.splitlines()[0], "🔔 BTCUSDT")
+        self.assertEqual(text.splitlines()[0], "📈 BTCUSDT")
         self.assertIn("شمعتين متتاليتين", text)
         self.assertNotIn("بتوقيت", text)
         self.assertIn("RSI (14): 19.00 → 21.00", text)
@@ -348,7 +348,7 @@ class ScannerTests(unittest.TestCase):
         self.store.record("BTCUSDT", close_time, signal_at(close_time))
         expected = format_alert("BTCUSDT", signal_at(close_time))
         legacy = expected.replace("2026-01-15 (14:00)", "2026-01-15 15:00")
-        legacy = legacy.replace("🔔 BTCUSDT", "🔔 تحقق فلتر الدخول: BTCUSDT")
+        legacy = legacy.replace("📈 BTCUSDT", "🔔 تحقق فلتر الدخول: BTCUSDT")
         legacy = legacy.replace("إغلاق الإشارة: 2026-01-15 15:00",
                                 "إغلاق الإشارة: 2026-01-15 15:00 (بتوقيت الرياض)")
         with self.store._lock, self.store._db:
