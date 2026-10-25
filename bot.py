@@ -6,6 +6,7 @@ import os
 import sys
 import threading
 import time
+import uuid
 from datetime import datetime
 from http.client import HTTPException
 from urllib.error import HTTPError, URLError
@@ -54,6 +55,10 @@ def api(token, method, payload=None):
         data=json.dumps(payload or {}).encode(),
         headers={"Content-Type": "application/json"},
     )
+    return _telegram_request(request)
+
+
+def _telegram_request(request):
     try:
         with urlopen(request, timeout=40) as response:
             result = json.load(response)
@@ -78,14 +83,38 @@ def api(token, method, payload=None):
     return result["result"]
 
 
-def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_send=None):
-    """Enrich each live delivery attempt with its own fresh quote, then send."""
+def send_document(token, chat_id, content, filename, caption=""):
+    """Upload an in-memory Excel file; never put credentials into errors."""
+    if (not isinstance(content, bytes) or not content or len(content) > 45 * 1024 * 1024
+            or not isinstance(filename, str) or not 1 <= len(filename) <= 100
+            or not all(char.isascii() and (char.isalnum() or char in "._-") for char in filename)):
+        raise ValueError("Invalid report document.")
+    boundary = "SpotReport" + uuid.uuid4().hex
+    chunks = []
+    for name, value in (("chat_id", str(chat_id)), ("caption", caption)):
+        chunks.append((f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n'
+                       f'{value}\r\n').encode("utf-8"))
+    chunks.append((f'--{boundary}\r\nContent-Disposition: form-data; name="document"; '
+                   f'filename="{filename}"\r\nContent-Type: '
+                   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n').encode("ascii"))
+    chunks.extend((content, f"\r\n--{boundary}--\r\n".encode("ascii")))
+    request = Request(f"https://api.telegram.org/bot{token}/sendDocument", data=b"".join(chunks),
+                      headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    return _telegram_request(request)
+
+
+def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_send=None,
+                       store=None, signal_close_time=None):
+    """Capture the exact quoted payload before send; confirm only Telegram receipts."""
+    price = quote_at_ms = symbol = None
     if parse_mode is None and text.startswith("📈 "):
         heading, separator, body = text.partition("\n")
-        symbol = heading.removeprefix("📈 ").strip()
-        if symbol.isalnum() and symbol.endswith("USDT"):
+        candidate = heading.removeprefix("📈 ").strip()
+        if candidate.isalnum() and candidate.endswith("USDT"):
+            symbol = candidate
             try:
                 price = client.latest_price(symbol)
+                quote_at_ms = int(time.time() * 1000)
                 whole, dot, fraction = price.partition(".")
                 display = f"{int(whole):,}" + (dot + fraction if fraction else "")
                 quote = f"💵 {display} USDT (عند الإرسال)"
@@ -93,13 +122,37 @@ def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_
                 logger.warning("Latest price unavailable; HTTP status=%s", error.status)
                 quote = "💵 السعر غير متاح"
             text = f"{heading} | {quote}{separator}{body}"
+    if store is not None and (symbol is None or signal_close_time is None or parse_mode is not None):
+        raise ValueError("Durable live delivery requires explicit signal identity.")
     payload = {"chat_id": chat_id, "text": text}
     if parse_mode is not None:
         payload["parse_mode"] = parse_mode
         payload["link_preview_options"] = {"is_disabled": True}
     if before_send is not None:
         before_send()
-    return api(token, "sendMessage", payload)
+    attempt_id = None
+    if store is not None:
+        attempt_id = store.prepare_delivery(chat_id, symbol, signal_close_time, price, quote_at_ms,
+                                            text, int(time.time() * 1000))
+    try:
+        result = api(token, "sendMessage", payload)
+    except TelegramError as error:
+        if attempt_id is not None:
+            status = error.status if type(error.status) is int and 100 <= error.status <= 599 else None
+            uncertain = status is None or status == 408 or status >= 500
+            store.fail_delivery(attempt_id, status, uncertain=uncertain)
+        raise
+    if attempt_id is not None:
+        valid = (isinstance(result, dict) and type(result.get("message_id")) is int
+                 and result["message_id"] > 0 and type(result.get("date")) is int and result["date"] >= 0
+                 and isinstance(result.get("chat"), dict) and type(result["chat"].get("id")) is int
+                 and result["chat"]["id"] == chat_id)
+        if not valid:
+            store.fail_delivery(attempt_id, uncertain=True)
+            raise TelegramError("تعذر تأكيد بيانات الإرسال؛ ستتم إعادة المحاولة.")
+        store.confirm_delivery(attempt_id, result["message_id"], result["date"] * 1000,
+                               int(time.time() * 1000))
+    return result
 
 
 def ensure_signal_access(store, chat_id):
@@ -167,7 +220,7 @@ def handle_access_callback(token, callback, store):
     api(token, "answerCallbackQuery", {"callback_query_id": callback["id"], "text": reply})
 
 
-def handle_update(token, update, store=None, worker_alive=True, history=None):
+def handle_update(token, update, store=None, worker_alive=True, history=None, reports=None):
     if not isinstance(update, dict):
         return
     if store is not None and store.access_required() is True and "callback_query" in update:
@@ -188,6 +241,22 @@ def handle_update(token, update, store=None, worker_alive=True, history=None):
                 and type(chat.get("id")) is int and chat["id"] > 0
                 and isinstance(sender, dict) and sender.get("id") == chat["id"]):
             api(token, "sendMessage", {"chat_id": chat["id"], "text": f"رقم حسابك في تيليجرام:\n{chat['id']}"})
+        return
+    if command == "/report":
+        sender = message.get("from", {})
+        allowed = (store is not None and isinstance(chat, dict) and chat.get("type") == "private"
+                   and isinstance(sender, dict) and store.is_admin(sender.get("id")) is True
+                   and type(chat.get("id")) is int and chat["id"] == sender.get("id"))
+        if not allowed:
+            if isinstance(chat, dict) and type(chat.get("id")) is int:
+                api(token, "sendMessage", {"chat_id": chat["id"], "text": "تقرير Excel متاح للمدير فقط في محادثة خاصة."})
+            return
+        reply = "إعداد التقارير غير متاح الآن؛ حاول لاحقاً."
+        if reports is not None:
+            reply = "جارٍ تجهيز تقرير Excel لسجل الإشارات المرسلة إليك، مع الأسعار الحالية ونسبة التغيّر."
+        api(token, "sendMessage", {"chat_id": chat["id"], "text": reply})
+        if reports is not None:
+            reports.request(chat["id"])
         return
     protected = ("/start", "/alerts_on", "/alerts_off", "/status", "/signals", "/requests", "/members", "/approve")
     if store is not None and store.access_required() is True and command in protected:
@@ -256,7 +325,7 @@ def handle_update(token, update, store=None, worker_alive=True, history=None):
     if command == "/start":
         reply = WELCOME
         if store is not None and store.access_required() is True and store.is_admin(chat["id"]):
-            reply += "\n\nإدارة الاشتراكات:\n/requests — طلبات الانضمام\n/members — المشتركون وسحب الصلاحية\n/approve مع رقم الحساب — الموافقة على طلب سبق رفضه"
+            reply += "\n\nإدارة الاشتراكات:\n/requests — طلبات الانضمام\n/members — المشتركون وسحب الصلاحية\n/approve مع رقم الحساب — الموافقة على طلب سبق رفضه\n/report — تقرير Excel للإشارات والأسعار"
         api(token, "sendMessage", {"chat_id": message["chat"]["id"], "text": reply})
     elif command in ("/alerts_on", "/alerts_off", "/status", "/signals") and store is not None:
         chat = message["chat"]
@@ -322,7 +391,7 @@ def handle_update(token, update, store=None, worker_alive=True, history=None):
         api(token, "sendMessage", {"chat_id": chat_id, "text": reply})
 
 
-def process_updates(token, updates, store, worker_alive=True, history=None):
+def process_updates(token, updates, store, worker_alive=True, history=None, reports=None):
     """Acknowledge permanent reply failures without blocking later commands.
 
     Transient failures leave the current update unacknowledged for retry.
@@ -339,7 +408,7 @@ def process_updates(token, updates, store, worker_alive=True, history=None):
         if update_id < offset:
             continue
         try:
-            handle_update(token, update, store, worker_alive, history)
+            handle_update(token, update, store, worker_alive, history, reports)
         except TelegramError as error:
             permanent = (isinstance(error.status, int) and 400 <= error.status < 500
                          and error.status not in (408, 409, 429))
@@ -368,6 +437,7 @@ def main():
         from market import BinanceClient, MarketError
         from indicators import entry_signal
         from history import HistoryService
+        from reporting import ReportService
 
         client = BinanceClient()
         if "--check" in sys.argv:
@@ -400,7 +470,7 @@ def main():
         delivery_lock = threading.Lock()
         next_message_at = 0.0
 
-        def send_alert(chat_id, text, parse_mode=None):
+        def send_alert(chat_id, text, parse_mode=None, *, signal_close_time=None):
             nonlocal next_message_at
             # Market alerts and historical pages share one paced sender.
             with delivery_lock:
@@ -419,16 +489,50 @@ def main():
                     store.set_next_delivery_at(time.time() + 1.05)
 
                 try:
-                    send_alert_message(token, client, chat_id, text, parse_mode, before_send=pace)
+                    send_alert_message(token, client, chat_id, text, parse_mode, before_send=pace,
+                                       store=store if signal_close_time is not None else None,
+                                       signal_close_time=signal_close_time)
                 except TelegramError as error:
                     if error.status == 429:
                         store.set_delivery_blocked_until(time.time() + max(60, error.retry_after or 0))
                     raise AlertDeliveryError(str(error), status=error.status,
                                              retry_after=error.retry_after) from None
 
-        scanner = Scanner(client, store, send_alert)
+        def send_live_signal(chat_id, symbol, close_time, text):
+            if text.split("\n", 1)[0] != "📈 " + symbol:
+                raise ValueError("Signal heading and delivery identity differ.")
+            return send_alert(chat_id, text, signal_close_time=close_time)
+
+        def send_report_document(chat_id, content, filename, caption):
+            nonlocal next_message_at
+            with delivery_lock:
+                if not store.is_admin(chat_id):
+                    raise AlertDeliveryError("التقرير متاح للمدير فقط.", status=403)
+                remaining = store.get_delivery_blocked_until() - time.time()
+                if remaining > 0:
+                    raise AlertDeliveryError("الإرسال ينتظر مهلة تيليجرام.", status=429, retry_after=remaining)
+                if stop.wait(max(0, next_message_at - time.monotonic())):
+                    raise AlertDeliveryError("توقف إرسال التقرير.")
+                if not store.is_admin(chat_id):
+                    raise AlertDeliveryError("التقرير متاح للمدير فقط.", status=403)
+                next_message_at = time.monotonic() + 1.05
+                store.set_next_delivery_at(time.time() + 1.05)
+                try:
+                    return send_document(token, chat_id, content, filename, caption)
+                except TelegramError as error:
+                    if error.status == 429:
+                        store.set_delivery_blocked_until(time.time() + max(60, error.retry_after or 0))
+                    raise AlertDeliveryError(str(error), status=error.status, retry_after=error.retry_after) from None
+
+        def send_report_notice(chat_id, text):
+            if not store.is_admin(chat_id):
+                raise AlertDeliveryError("التقرير متاح للمدير فقط.", status=403)
+            return send_alert(chat_id, text)
+
+        scanner = Scanner(client, store, send_alert, send_signal=send_live_signal)
         history = HistoryService(client, lambda chat_id, text: send_alert(chat_id, text, "HTML"), stop,
                                  store=store)
+        reports = ReportService(store, client, send_report_document, send_report_notice, stop)
         history.start_background()
         try:
             api(token, "setMyCommands", {"commands": [
@@ -438,6 +542,7 @@ def main():
                 {"command": "alerts_off", "description": "إيقاف التنبيهات"},
                 {"command": "status", "description": "حالة المراقبة والتنبيهات"},
                 {"command": "myid", "description": "عرض رقم حسابك في تيليجرام"},
+                {"command": "report", "description": "تقرير Excel للإشارات والأسعار — للمدير"},
             ]})
         except TelegramError as error:
             logger.warning("Command menu refresh failed; HTTP status=%s", error.status)
@@ -460,7 +565,7 @@ def main():
             while True:
                 try:
                     updates = api(token, "getUpdates", {"offset": offset, "timeout": 30, "allowed_updates": ["message", "callback_query"]})
-                    offset = process_updates(token, updates, store, worker.is_alive(), history)
+                    offset = process_updates(token, updates, store, worker.is_alive(), history, reports)
                     if updates:
                         logger.info("Telegram update batch handled; count=%s", len(updates))
                 except TelegramError as error:
@@ -479,7 +584,8 @@ def main():
             stop.set()
             worker.join(timeout=25)
             history.join(timeout=25)
-            if not worker.is_alive() and not history.is_alive():
+            reports.join(timeout=5)
+            if not worker.is_alive() and not history.is_alive() and not reports.is_alive():
                 store.close()
     except TelegramError as error:
         print(str(error), file=sys.stderr)

@@ -1,12 +1,14 @@
 """Durable, opt-in delivery of closed-candle Binance spot signals."""
 
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 import json
 import logging
 from pathlib import Path
 import sqlite3
 import threading
 import time
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from indicators import entry_signal
@@ -139,11 +141,154 @@ class AlertStore:
                     requested_at_ms INTEGER NOT NULL,
                     notified INTEGER NOT NULL DEFAULT 0
                 );
+                CREATE TABLE IF NOT EXISTS delivery_ledger (
+                    attempt_id TEXT PRIMARY KEY,
+                    chat_id INTEGER NOT NULL,
+                    symbol TEXT NOT NULL,
+                    signal_close_time INTEGER NOT NULL,
+                    quote_price TEXT,
+                    quote_at_ms INTEGER,
+                    message_text TEXT NOT NULL,
+                    attempted_at_ms INTEGER NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('prepared', 'sent', 'failed', 'uncertain')),
+                    telegram_message_id INTEGER,
+                    telegram_sent_at_ms INTEGER,
+                    confirmed_at_ms INTEGER,
+                    failure_status INTEGER,
+                    origin TEXT NOT NULL DEFAULT 'live'
+                );
+                CREATE INDEX IF NOT EXISTS delivery_ledger_recipient_signal
+                    ON delivery_ledger(chat_id, symbol, signal_close_time, status);
+            """)
+            self._db.execute(
+                "INSERT OR IGNORE INTO metadata(key, value) VALUES ('delivery_ledger_started_at_ms', ?)",
+                (json.dumps(int(time.time() * 1000)),),
+            )
+            # Old messages were confirmed, but their displayed quote was never
+            # saved. Retain those records with an explicitly unknown price.
+            self._db.execute("""
+                INSERT OR IGNORE INTO delivery_ledger(
+                    attempt_id, chat_id, symbol, signal_close_time, quote_price,
+                    quote_at_ms, message_text, attempted_at_ms, status,
+                    telegram_sent_at_ms, confirmed_at_ms, origin)
+                SELECT 'legacy:' || d.chat_id || ':' || d.symbol || ':' || d.close_time,
+                    d.chat_id, d.symbol, d.close_time, NULL, NULL, s.message,
+                    d.sent_at_ms, 'sent', d.sent_at_ms, d.sent_at_ms, 'legacy'
+                FROM deliveries AS d JOIN signals AS s
+                    ON d.symbol = s.symbol AND d.close_time = s.close_time
+                WHERE d.sent_at_ms IS NOT NULL AND NOT EXISTS (
+                    SELECT 1 FROM delivery_ledger AS l
+                    WHERE l.chat_id = d.chat_id AND l.symbol = d.symbol
+                        AND l.signal_close_time = d.close_time AND l.status = 'sent')
             """)
 
     def close(self):
         with self._lock:
             self._db.close()
+
+    @staticmethod
+    def _ledger_timestamp(value):
+        if type(value) is not int or not 0 <= value < 2**63:
+            raise ValueError("Delivery timestamps must be nonnegative integer milliseconds.")
+
+    def prepare_delivery(self, chat_id, symbol, signal_close_time, quote_price,
+                         quote_at_ms, message_text, attempted_at_ms):
+        """Commit the exact displayed quote and payload before attempting send."""
+        if type(chat_id) is not int or not 0 < chat_id < 2**52:
+            raise ValueError("Delivery ledger requires a private Telegram user ID.")
+        if not isinstance(symbol, str) or not 1 <= len(symbol) <= 128 or not symbol.isalnum():
+            raise ValueError("Invalid delivery symbol.")
+        self._ledger_timestamp(signal_close_time)
+        self._ledger_timestamp(attempted_at_ms)
+        if quote_at_ms is not None:
+            self._ledger_timestamp(quote_at_ms)
+        if quote_price is not None:
+            if not isinstance(quote_price, str) or not 1 <= len(quote_price) <= 80:
+                raise ValueError("A delivery quote must be a decimal string.")
+            try:
+                price = Decimal(quote_price)
+            except InvalidOperation:
+                raise ValueError("Invalid delivery quote.") from None
+            if (not price.is_finite() or price <= 0 or not -40 <= price.adjusted() <= 30
+                    or quote_at_ms is None):
+                raise ValueError("Invalid delivery quote or missing quote timestamp.")
+        if not isinstance(message_text, str) or not 1 <= len(message_text) <= 32768:
+            raise ValueError("Invalid delivery message.")
+        attempt_id = uuid4().hex
+        with self._lock, self._db:
+            self._db.execute("""
+                INSERT INTO delivery_ledger(attempt_id, chat_id, symbol, signal_close_time,
+                    quote_price, quote_at_ms, message_text, attempted_at_ms, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'prepared')
+            """, (attempt_id, chat_id, symbol, signal_close_time, quote_price,
+                  quote_at_ms, message_text, attempted_at_ms))
+        return attempt_id
+
+    def confirm_delivery(self, attempt_id, telegram_message_id, telegram_sent_at_ms,
+                         confirmed_at_ms):
+        """Commit confirmed send and pending-queue completion atomically."""
+        if type(telegram_message_id) is not int or not 0 < telegram_message_id < 2**63:
+            raise ValueError("Invalid Telegram message identifier.")
+        self._ledger_timestamp(telegram_sent_at_ms)
+        self._ledger_timestamp(confirmed_at_ms)
+        with self._lock, self._db:
+            row = self._db.execute(
+                "SELECT chat_id, symbol, signal_close_time, status, telegram_message_id, "
+                "telegram_sent_at_ms FROM delivery_ledger WHERE attempt_id = ?", (attempt_id,),
+            ).fetchone()
+            if row is None or row[3] not in ('prepared', 'uncertain', 'sent'):
+                raise ValueError("Delivery attempt cannot be confirmed.")
+            if row[3] == 'sent':
+                if (row[4], row[5]) != (telegram_message_id, telegram_sent_at_ms):
+                    raise ValueError("A confirmed delivery cannot be overwritten.")
+                return
+            self._db.execute("""
+                UPDATE delivery_ledger SET status = 'sent', telegram_message_id = ?,
+                    telegram_sent_at_ms = ?, confirmed_at_ms = ?, failure_status = NULL
+                WHERE attempt_id = ?
+            """, (telegram_message_id, telegram_sent_at_ms, confirmed_at_ms, attempt_id))
+            self._db.execute("""
+                UPDATE deliveries SET sent_at_ms = ?, attempts = attempts + 1
+                WHERE chat_id = ? AND symbol = ? AND close_time = ? AND sent_at_ms IS NULL
+            """, (telegram_sent_at_ms, *row[:3]))
+
+    def fail_delivery(self, attempt_id, failure_status=None, uncertain=False):
+        """Keep failed or ambiguous attempts separate from confirmed history."""
+        if (failure_status is not None and
+                (type(failure_status) is not int or not 100 <= failure_status <= 599)):
+            raise ValueError("Invalid delivery failure status.")
+        if type(uncertain) is not bool:
+            raise ValueError("Delivery uncertainty must be boolean.")
+        with self._lock, self._db:
+            self._db.execute("""
+                UPDATE delivery_ledger SET status = ?, failure_status = ?
+                WHERE attempt_id = ? AND status IN ('prepared', 'uncertain')
+            """, ('uncertain' if uncertain else 'failed', failure_status, attempt_id))
+
+    def report_rows(self, chat_id):
+        """Return the first confirmed message for each signal for one recipient."""
+        if type(chat_id) is not int or not 0 < chat_id < 2**52:
+            raise ValueError("Delivery reports require a private Telegram user ID.")
+        with self._lock:
+            cursor = self._db.execute("""
+                SELECT * FROM delivery_ledger WHERE chat_id = ? AND status = 'sent'
+                ORDER BY signal_close_time, symbol,
+                    COALESCE(telegram_sent_at_ms, confirmed_at_ms), attempted_at_ms, attempt_id
+            """, (chat_id,))
+            names = [column[0] for column in cursor.description]
+            rows = cursor.fetchall()
+        results = []
+        seen = set()
+        for values in rows:
+            row = dict(zip(names, values))
+            key = (row['symbol'], row['signal_close_time'])
+            if key not in seen:
+                seen.add(key)
+                results.append(row)
+        return results
+
+    def get_ledger_started_at_ms(self):
+        return self._metadata('delivery_ledger_started_at_ms', None)
 
     def configure_access(self, admin_id=None):
         """Enable approvals before starting workers; never claim the first visitor."""
@@ -376,12 +521,13 @@ class AlertStore:
 
 class Scanner:
     def __init__(self, client, store, send_alert, *, poll_seconds=60,
-                 request_delay=0.15, clock=time.time, sleep=time.sleep):
+                 request_delay=0.15, clock=time.time, sleep=time.sleep, send_signal=None):
         if poll_seconds <= 0 or request_delay < 0:
             raise ValueError("Polling must be positive and request delay nonnegative.")
         self.client = client
         self.store = store
         self.send_alert = send_alert
+        self.send_signal = send_signal
         self.poll_seconds = poll_seconds
         self.request_delay = request_delay
         self.clock = clock
@@ -423,7 +569,10 @@ class Scanner:
             attempted.add(key)
             self.store.set_next_delivery_at(self.clock() + DELIVERY_SPACING_SECONDS)
             try:
-                self.send_alert(chat_id, message)
+                if self.send_signal is not None:
+                    self.send_signal(chat_id, symbol, close_time, message)
+                else:
+                    self.send_alert(chat_id, message)
             except AlertDeliveryError as error:
                 self.store.delivery_attempt(*key)
                 failed += 1
