@@ -66,13 +66,14 @@ def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_
     return "\n".join(lines)
 
 
-def format_alert(symbol, signal):
+def format_alert(symbol, signal, *, exchange_name="Binance Spot"):
     timing = "الشرطان في الشمعة نفسها."
     if signal.rsi_event_close_time != signal.stoch_event_close_time:
         timing = "الشرطان في شمعتين متتاليتين."
     message = (
         f"📈 {symbol}\n"
-        "بايننس سبوت • فريم 4 ساعات • شموع مغلقة\n"
+        f"🏷️ {exchange_name}\n"
+        "⏱️ 4h • شموع مغلقة\n"
         f"إغلاق شمعة 4h: {_close_label(signal.close_time)}\n"
         f"قيم آخر إغلاق:\n"
         f"RSI (14): {signal.rsi_previous:.2f} → {signal.rsi_current:.2f}\n"
@@ -94,7 +95,10 @@ class AlertStore:
     after Telegram accepts a message and before commit can repeat that message.
     """
 
-    def __init__(self, path):
+    def __init__(self, path, *, exchange_name="Binance Spot"):
+        if not isinstance(exchange_name, str) or not 1 <= len(exchange_name) <= 80:
+            raise ValueError("Invalid exchange display name.")
+        self.exchange_name = exchange_name
         if str(path) != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
@@ -196,7 +200,7 @@ class AlertStore:
         """Commit the exact displayed quote and payload before attempting send."""
         if type(chat_id) is not int or not 0 < chat_id < 2**52:
             raise ValueError("Delivery ledger requires a private Telegram user ID.")
-        if not isinstance(symbol, str) or not 1 <= len(symbol) <= 128 or not symbol.isalnum():
+        if not isinstance(symbol, str) or not 1 <= len(symbol) <= 128 or not symbol.replace("_", "").replace("-", "").replace(".", "").isalnum():
             raise ValueError("Invalid delivery symbol.")
         self._ledger_timestamp(signal_close_time)
         self._ledger_timestamp(attempted_at_ms)
@@ -407,7 +411,7 @@ class AlertStore:
             if signal is not None:
                 self._db.execute(
                     "INSERT OR IGNORE INTO signals VALUES (?, ?, ?, ?, ?)",
-                    (symbol, signal.close_time, format_alert(symbol, signal),
+                    (symbol, signal.close_time, format_alert(symbol, signal, exchange_name=self.exchange_name),
                      signal.rsi_event_close_time, signal.stoch_event_close_time),
                 )
                 self._db.executemany(
@@ -610,8 +614,9 @@ class Scanner:
         deadline = getattr(error, "cooldown_until", None)
         if deadline is None:
             deadline = self.clock() + max(default, error.retry_after or 0)
+        name = "بايننس" if self.store.exchange_name == "Binance Spot" else self.store.exchange_name
         status.update(state="blocked", blocked_until=deadline,
-                      error="تعذر جلب بيانات بايننس." +
+                      error=f"تعذر جلب بيانات {name}." +
                       (f" HTTP {error.status}." if error.status is not None else ""))
         return self._finish(status)
 
@@ -649,6 +654,9 @@ class Scanner:
 
         status["symbols_total"] = len(self._symbols)
         if not self._symbols:
+            if getattr(self.client, "allow_empty_universe", False) is True:
+                status["state"] = "ready"
+                return self._finish(status)
             return self._block(MarketError("No active Binance spot USDT pairs."), status)
         earliest_activation = min(activation for _, activation in subscribers)
         market_failed = False

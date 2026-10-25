@@ -51,6 +51,7 @@ class HistoryResult:
     blocked_until: float = 0
     cached_at_ms: int | None = None
     refreshing: bool = False
+    exchange_name: str = "Binance Spot"
 
 
 def _time_label(timestamp):
@@ -59,7 +60,8 @@ def _time_label(timestamp):
 
 def _signal_row(index, symbol, signal):
     local = datetime.fromtimestamp((signal.close_time + 1) / 1000, DISPLAY_TZ)
-    label = symbol[:-4] + "/USDT" if symbol.endswith("USDT") else symbol
+    label = (symbol[:-5] + "/USDT" if symbol.endswith("_USDT") else
+             symbol[:-4] + "/USDT" if symbol.endswith("USDT") else symbol)
     coin = f"<code>{escape(label)}</code>"
     return (f'<code>{index:02d}.</code> {coin} ✅ '
             f'<code>{local:%Y-%m-%d} ({local:%H:%M})</code>')
@@ -81,7 +83,9 @@ def format_history(result):
     )
     header_text = (
         "إشارات تاريخية، وليست تنبيهات جديدة\n"
-        "Binance Spot • جميع أزواج USDT • 4h\n"
+        f"{result.exchange_name} • "
+        + ("جميع أزواج USDT" if result.exchange_name == "Binance Spot" else "أزواج USDT غير الموجودة على Binance")
+        + " • 4h\n"
         f"الفترة: {_time_label(cutoff)} إلى {_time_label(result.as_of_ms)}\n"
         f"آخر إغلاق معتمد: {_time_label(result.target_close_time + 1)}\n"
         f"الأزواج المفحوصة: {result.symbols_checked}/{result.symbols_total}\n"
@@ -97,7 +101,8 @@ def format_history(result):
             errors = "، ".join(f"{reason}: {count}" for reason, count in sorted(result.errors.items()))
             header_text += f"تعذر إكمال الفحص: {errors}\n"
         if result.blocked_until:
-            header_text += "يلزم انتظار مهلة بايننس ثم إعادة الطلب.\n"
+            name = "بايننس" if result.exchange_name == "Binance Spot" else result.exchange_name
+            header_text += f"يلزم انتظار مهلة {name} ثم إعادة الطلب.\n"
     header = "<b>📊 إشارات آخر 48 ساعة</b>\n" + escape(header_text)
     if not matches:
         body = ("لم تظهر إشارات مطابقة خلال الفترة." if result.complete else
@@ -126,7 +131,7 @@ class HistoryService:
     """Background refresh with durable snapshots and coalesced report delivery."""
 
     def __init__(self, client, send_result, stop_event, request_delay=0.15,
-                 *, clock=time.time, sleep=time.sleep, store=None):
+                 *, clock=time.time, sleep=time.sleep, store=None, exchange_name=None):
         if request_delay < 0:
             raise ValueError("Request delay must be nonnegative.")
         self.client = client
@@ -136,6 +141,10 @@ class HistoryService:
         self.clock = clock
         self.sleep = sleep
         self.store = store
+        name = exchange_name if exchange_name is not None else getattr(store, "exchange_name", "Binance Spot")
+        self.exchange_name = name if isinstance(name, str) else "Binance Spot"
+        if not 1 <= len(self.exchange_name) <= 80:
+            raise ValueError("Invalid history exchange name.")
         self._condition = threading.Condition()
         self._scan_lock = threading.Lock()
         self._waiting = set()
@@ -179,10 +188,11 @@ class HistoryService:
                             or not 0 < result.target_close_time < result.as_of_ms
                             or (result.target_close_time + 1) % FOUR_HOURS_MS
                             or result.complete is not (kind == "complete")
-                            or not isinstance(result.errors, dict)):
+                            or not isinstance(result.errors, dict)
+                            or result.exchange_name != self.exchange_name):
                         raise ValueError("Invalid cached report.")
                     for symbol, signal in result.matches:
-                        if (not isinstance(symbol, str) or not symbol.isalnum() or len(symbol) > 128
+                        if (not isinstance(symbol, str) or not symbol.replace("_", "").replace("-", "").replace(".", "").isalnum() or len(symbol) > 128
                                 or not isinstance(signal.close_time, int) or signal.close_time < 0):
                             raise ValueError("Invalid cached signal.")
                     if kind == "complete":
@@ -335,7 +345,12 @@ class HistoryService:
                 snapshot = self.cached_result()
                 if snapshot is not None:
                     return snapshot
-            result = self._scan_once()
+            original = self._scan_once()
+            result = replace(original, exchange_name=self.exchange_name)
+            if self._cache is original:
+                self._cache = result
+            if self._partial is original:
+                self._partial = result
             self._persist_cache()
             return result
 
@@ -345,7 +360,7 @@ class HistoryService:
             if self._partial is not None:
                 return self._for_now(self._partial, now)
             return HistoryResult(now, ((now - CLOSE_GRACE_MS) // FOUR_HOURS_MS) * FOUR_HOURS_MS - 1,
-                                 0, 0, (), False, {"مهلة بايننس": 1}, self._market_blocked_until)
+                                 0, 0, (), False, {"مهلة " + ("بايننس" if self.exchange_name == "Binance Spot" else self.exchange_name): 1}, self._market_blocked_until)
         errors = Counter()
         target = ((now - CLOSE_GRACE_MS) // FOUR_HOURS_MS) * FOUR_HOURS_MS - 1
         try:
@@ -358,6 +373,10 @@ class HistoryService:
         if self._cache is not None and self._cache_key == cache_key:
             return self._for_now(self._cache, as_of)
         if not symbols:
+            if getattr(self.client, "allow_empty_universe", False) is True:
+                result = HistoryResult(as_of, target, 0, 0, (), True, {})
+                self._cache, self._cache_key = result, cache_key
+                return result
             return self._blocked_result(MarketError("No active symbols."), as_of, target, 0, 0, [], errors)
         matches = []
         checked = 0

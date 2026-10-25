@@ -106,6 +106,38 @@ class WorkbookTests(unittest.TestCase):
         self.assertEqual(table[1][2], '2026-10-24 (11:00:00)')
         self.assertEqual(table[2][2], '2026-10-25 (10:00:00)')
 
+    def test_source_qualified_prices_never_cross_same_coin_or_collapse_rows(self):
+        rows = [row('ABC_USDT', '2', exchange_name='Gate.io Spot', quote_key=('gate', 'ABC_USDT')),
+                row('ABCUSDT', '100', exchange_name='Binance Spot', quote_key=('binance', 'ABCUSDT'))]
+        quotes = {('gate', 'ABC_USDT'): {'price': '3', 'at_ms': NOW+1000},
+                  ('binance', 'ABCUSDT'): {'price': '125', 'at_ms': NOW+2000}}
+        data = build_report(rows, quotes, NOW+3000)
+        table = cells(data)
+        self.assertEqual(len(table[0]), 6)
+        self.assertEqual([entry[1] for entry in table[1:]],
+                         ['ABC/USDT • Binance Spot', 'ABC/USDT • Gate.io Spot'])
+        self.assertEqual([entry[4:] for entry in table[1:]],
+                         [[Decimal('125'), Decimal('.25')], [Decimal('3'), Decimal('.5')]])
+        metadata = cells(data, 'sheet2')
+        self.assertIn(['ABC/USDT • Binance Spot — السعر الحالي الأصلي', '125'], metadata)
+        self.assertIn(['ABC/USDT • Gate.io Spot — السعر الحالي الأصلي', '3'], metadata)
+        self.assertIn(['ABC/USDT • Gate.io Spot — وقت جلب السعر UTC', '2026-10-25 (08:00:01)'], metadata)
+        self.assertIn(['ABC/USDT • Binance Spot — وقت جلب السعر UTC', '2026-10-25 (08:00:02)'], metadata)
+
+    def test_missing_gate_quote_does_not_reuse_binance_price_and_native_unicode_is_preserved(self):
+        rows = [row('币安_USDT', '2', exchange_name='Gate.io Spot', quote_key=('gate', '币安_USDT'),
+                    chat_id=987654321, telegram_message_id=12345678)]
+        quotes = {'币安_USDT': {'price': '999', 'at_ms': NOW},
+                  ('binance', '币安_USDT'): {'price': '888', 'at_ms': NOW}}
+        data = build_report(rows, quotes, NOW)
+        table = cells(data)
+        self.assertEqual(table[1][1], '币安/USDT • Gate.io Spot')
+        self.assertEqual(table[1][4:], ['غير متاح', 'غير محسوب'])
+        all_text = str(table) + str(cells(data, 'sheet2'))
+        self.assertNotIn('987654321', all_text)
+        self.assertNotIn('12345678', all_text)
+        self.assertNotIn('chat_id', all_text)
+
 
 class ServiceTests(unittest.TestCase):
     def setUp(self):
@@ -195,6 +227,54 @@ class ServiceTests(unittest.TestCase):
         self.shutdown()
         self.assertFalse(self.service.is_alive())
         self.assertEqual(self.document.call_count, 1)
+
+    def test_multisource_service_fetches_once_per_platform_pair(self):
+        self.store.report_rows.return_value = [
+            row('ABCUSDT', '100', exchange_name='Binance Spot', quote_key=('binance', 'ABCUSDT')),
+            row('ABC_USDT', '2', exchange_name='Gate.io Spot', quote_key=('gate', 'ABC_USDT')),
+            row('ABC_USDT', '1', close=NOW-1000, exchange_name='Gate.io Spot', quote_key=('gate', 'ABC_USDT'))]
+        self.client.latest_price.side_effect = lambda key: '125' if key[0] == 'binance' else '3'
+        self.service._generate(100)
+        self.assertEqual([call.args[0] for call in self.client.latest_price.call_args_list],
+                         [('binance', 'ABCUSDT'), ('gate', 'ABC_USDT')])
+        table = cells(self.document.call_args.args[1])
+        self.assertEqual(len(table)-1, 3)
+        self.assertEqual([entry[5] for entry in table[1:]], [Decimal('2'), Decimal('.25'), Decimal('.5')])
+
+    def test_gate_cooldown_keeps_binance_quote_and_skips_only_remaining_gate_pairs(self):
+        self.store.report_rows.return_value = [
+            row('ABC_USDT', '2', exchange_name='Gate.io Spot', quote_key=('gate', 'ABC_USDT')),
+            row('DEF_USDT', '2', exchange_name='Gate.io Spot', quote_key=('gate', 'DEF_USDT')),
+            row('ABCUSDT', '100', exchange_name='Binance Spot', quote_key=('binance', 'ABCUSDT'))]
+        def ticker(key):
+            if key[0] == 'gate':
+                raise MarketError('private diagnostic', status=429, retry_after=120)
+            return '125'
+        self.client.latest_price.side_effect = ticker
+        with self.assertLogs('reporting', level='WARNING') as log:
+            self.service._generate(100)
+        self.assertNotIn('private diagnostic', str(log.output))
+        self.assertEqual(self.client.latest_price.call_count, 2)
+        table = cells(self.document.call_args.args[1])
+        self.assertEqual(table[1][4:], [Decimal('125'), Decimal('.25')])
+        self.assertEqual(table[2][4:], ['غير متاح', 'غير محسوب'])
+        self.assertEqual(table[3][4:], ['غير متاح', 'غير محسوب'])
+
+    def test_binance_cooldown_does_not_prevent_later_gate_quote(self):
+        self.store.report_rows.return_value = [
+            row('ABCUSDT', '100', exchange_name='Binance Spot', quote_key=('binance', 'ABCUSDT')),
+            row('ABC_USDT', '2', exchange_name='Gate.io Spot', quote_key=('gate', 'ABC_USDT'))]
+        def ticker(key):
+            if key[0] == 'binance':
+                raise MarketError('private diagnostic', status=429, retry_after=120)
+            return '3'
+        self.client.latest_price.side_effect = ticker
+        with self.assertLogs('reporting', level='WARNING'):
+            self.service._generate(100)
+        self.assertEqual(self.client.latest_price.call_count, 2)
+        table = cells(self.document.call_args.args[1])
+        self.assertEqual(table[1][4:], ['غير متاح', 'غير محسوب'])
+        self.assertEqual(table[2][4:], [Decimal('3'), Decimal('.5')])
 
     def test_generation_failure_is_sanitized_and_worker_remains_available(self):
         self.store.report_rows.side_effect = ValueError('secret detail')

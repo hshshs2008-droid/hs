@@ -110,7 +110,7 @@ def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_
     if parse_mode is None and text.startswith("📈 "):
         heading, separator, body = text.partition("\n")
         candidate = heading.removeprefix("📈 ").strip()
-        if candidate.isalnum() and candidate.endswith("USDT"):
+        if candidate.replace("_", "").replace("-", "").replace(".", "").isalnum() and candidate.endswith("USDT"):
             symbol = candidate
             try:
                 price = client.latest_price(symbol)
@@ -220,7 +220,8 @@ def handle_access_callback(token, callback, store):
     api(token, "answerCallbackQuery", {"callback_query_id": callback["id"], "text": reply})
 
 
-def handle_update(token, update, store=None, worker_alive=True, history=None, reports=None):
+def handle_update(token, update, store=None, worker_alive=True, history=None, reports=None,
+                  gate_store=None, gate_worker_alive=True):
     if not isinstance(update, dict):
         return
     if store is not None and store.access_required() is True and "callback_query" in update:
@@ -324,6 +325,9 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
             return
     if command == "/start":
         reply = WELCOME
+        if gate_store is not None:
+            reply = reply.replace("أراقب أزواج USDT في Binance Spot على فريم 4h.",
+                                  "أراقب Binance Spot وأزواج Gate.io Spot غير الموجودة عليه، مقابل USDT وعلى فريم 4h.")
         if store is not None and store.access_required() is True and store.is_admin(chat["id"]):
             reply += "\n\nإدارة الاشتراكات:\n/requests — طلبات الانضمام\n/members — المشتركون وسحب الصلاحية\n/approve مع رقم الحساب — الموافقة على طلب سبق رفضه\n/report — تقرير Excel للإشارات والأسعار"
         api(token, "sendMessage", {"chat_id": message["chat"]["id"], "text": reply})
@@ -388,10 +392,28 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
                 reply += "\n" + history.last_error
             if history is not None and isinstance(getattr(history, "refresh_error", None), str):
                 reply += "\n" + history.refresh_error
+            if gate_store is not None:
+                secondary = gate_store.status()
+                gate_labels = {
+                    "idle": "تنتظر تفعيل التنبيهات", "ready": "آخر دورة مكتملة",
+                    "scanning": "جارٍ الفحص", "blocked": "تعذر إكمال الفحص؛ ستتم إعادة المحاولة",
+                    "backoff": "انتظار مهلة Gate.io", "error": "تعذر إكمال دورة الفحص",
+                }
+                gate_state = gate_labels.get(secondary.get("state"), "قيد التهيئة")
+                if not gate_worker_alive:
+                    gate_state = "عامل المراقبة متوقف؛ يلزم فحص التشغيل"
+                checked, total = secondary.get("symbols_checked", 0), secondary.get("symbols_total", "—")
+                reply += f"\n\nGate.io Spot — غير الموجودة على Binance:\n{gate_state}\nالأزواج: {checked}/{total}"
+                stamp = secondary.get("last_scan_ms")
+                if type(stamp) in (int, float):
+                    from alerts import DISPLAY_TZ
+                    label = datetime.fromtimestamp(stamp / 1000, DISPLAY_TZ).strftime("%Y-%m-%d (%H:%M:%S)")
+                    reply += f"\nآخر دورة Gate.io: {label}"
         api(token, "sendMessage", {"chat_id": chat_id, "text": reply})
 
 
-def process_updates(token, updates, store, worker_alive=True, history=None, reports=None):
+def process_updates(token, updates, store, worker_alive=True, history=None, reports=None,
+                    gate_store=None, gate_worker_alive=True):
     """Acknowledge permanent reply failures without blocking later commands.
 
     Transient failures leave the current update unacknowledged for retry.
@@ -408,7 +430,7 @@ def process_updates(token, updates, store, worker_alive=True, history=None, repo
         if update_id < offset:
             continue
         try:
-            handle_update(token, update, store, worker_alive, history, reports)
+            handle_update(token, update, store, worker_alive, history, reports, gate_store, gate_worker_alive)
         except TelegramError as error:
             permanent = (isinstance(error.status, int) and 400 <= error.status < 500
                          and error.status not in (408, 409, 429))
@@ -439,6 +461,11 @@ def main():
         from history import HistoryService
         from reporting import ReportService
 
+        flag = os.environ.get("GATE_SPOT_ENABLED", "false").strip().lower()
+        if flag not in ("true", "1", "on", "yes", "false", "0", "off", "no", ""):
+            logger.error("GATE_SPOT_ENABLED must be true or false.")
+            return 1
+        gate_enabled = flag in ("true", "1", "on", "yes")
         client = BinanceClient()
         if "--check" in sys.argv:
             try:
@@ -466,15 +493,28 @@ def main():
         store.configure_access(int(raw_admin) if raw_admin else None)
         if store.admin_id is None:
             logger.warning("Approval access is locked until TELEGRAM_ADMIN_ID is configured; /myid remains available.")
+        gate_store = gate_client = None
+        gate_path = (":memory:" if state_path == ":memory:" else
+                     os.path.join(os.path.dirname(os.path.abspath(state_path)), "gate-alerts.sqlite3"))
+        if gate_enabled or (gate_path != ":memory:" and os.path.isfile(gate_path)):
+            from gate_market import GateClient
+            from gate_runtime import GateStore
+            gate_store = GateStore(gate_path, store)
+            gate_client = GateClient(client, base_url=os.environ.get("API_GATE_BASE") or "https://api.gateio.ws")
+            if gate_enabled:
+                gate_store.eligible_symbol = gate_client.is_eligible
         stop = threading.Event()
         delivery_lock = threading.Lock()
         next_message_at = 0.0
 
-        def send_alert(chat_id, text, parse_mode=None, *, signal_close_time=None):
+        def send_alert(chat_id, text, parse_mode=None, *, signal_close_time=None,
+                       source_store=None, source_client=None):
             nonlocal next_message_at
-            # Market alerts and historical pages share one paced sender.
+            source_store = source_store if source_store is not None else store
+            source_client = source_client if source_client is not None else client
+            # All platforms, history pages and reports share one paced sender.
             with delivery_lock:
-                ensure_signal_access(store, chat_id)
+                ensure_signal_access(source_store, chat_id)
                 remaining = store.get_delivery_blocked_until() - time.time()
                 if remaining > 0:
                     raise AlertDeliveryError("إرسال الرسائل ينتظر مهلة تيليجرام.",
@@ -484,13 +524,17 @@ def main():
                     delay = max(0, next_message_at - time.monotonic())
                     if stop.wait(delay):
                         raise AlertDeliveryError("توقف إرسال الرسائل.")
-                    ensure_signal_access(store, chat_id)
+                    ensure_signal_access(source_store, chat_id)
+                    if signal_close_time is not None:
+                        native_symbol = text.split("\n", 1)[0].removeprefix("📈 ")
+                        if not source_store.is_pending(chat_id, native_symbol, signal_close_time):
+                            raise AlertDeliveryError("الإشارة لم تعد ضمن الإرسال المسموح.", status=403)
                     next_message_at = time.monotonic() + 1.05
                     store.set_next_delivery_at(time.time() + 1.05)
 
                 try:
-                    send_alert_message(token, client, chat_id, text, parse_mode, before_send=pace,
-                                       store=store if signal_close_time is not None else None,
+                    send_alert_message(token, source_client, chat_id, text, parse_mode, before_send=pace,
+                                       store=source_store if signal_close_time is not None else None,
                                        signal_close_time=signal_close_time)
                 except TelegramError as error:
                     if error.status == 429:
@@ -532,7 +576,24 @@ def main():
         scanner = Scanner(client, store, send_alert, send_signal=send_live_signal)
         history = HistoryService(client, lambda chat_id, text: send_alert(chat_id, text, "HTML"), stop,
                                  store=store)
-        reports = ReportService(store, client, send_report_document, send_report_notice, stop)
+        gate_scanner = None
+        if gate_enabled:
+            from gate_runtime import CombinedHistory
+            def send_gate_signal(chat_id, symbol, close_time, text):
+                if text.split("\n", 1)[0] != "📈 " + symbol:
+                    raise ValueError("Gate signal heading and identity differ.")
+                return send_alert(chat_id, text, signal_close_time=close_time,
+                                  source_store=gate_store, source_client=gate_client)
+            gate_scanner = Scanner(gate_client, gate_store, send_alert, send_signal=send_gate_signal)
+            gate_history = HistoryService(gate_client,
+                lambda chat_id, text: send_alert(chat_id, text, "HTML"), stop,
+                store=gate_store, exchange_name="Gate.io Spot")
+            history = CombinedHistory(history, gate_history)
+        report_store, report_client = store, client
+        if gate_store is not None:
+            from gate_runtime import ReportStore, MarketRouter
+            report_store, report_client = ReportStore(store, gate_store), MarketRouter(client, gate_client)
+        reports = ReportService(report_store, report_client, send_report_document, send_report_notice, stop)
         history.start_background()
         try:
             api(token, "setMyCommands", {"commands": [
@@ -547,17 +608,21 @@ def main():
         except TelegramError as error:
             logger.warning("Command menu refresh failed; HTTP status=%s", error.status)
 
-        def monitor():
+        def monitor(active_scanner):
             while not stop.is_set():
                 try:
-                    scanner.run(stop)
+                    active_scanner.run(stop)
                 except Exception as error:
                     logger.error("Scanner worker will restart; exception type=%s", type(error).__name__)
                 if not stop.is_set():
                     stop.wait(30)
 
-        worker = threading.Thread(target=monitor, name="market-scanner", daemon=True)
+        worker = threading.Thread(target=monitor, args=(scanner,), name="market-scanner", daemon=True)
         worker.start()
+        gate_worker = None
+        if gate_scanner is not None:
+            gate_worker = threading.Thread(target=monitor, args=(gate_scanner,), name="gate-scanner", daemon=True)
+            gate_worker.start()
         print("البوت يعمل وينتظر الرسائل.", flush=True)
         offset = store.get_update_offset()
         next_health_log = 0.0
@@ -565,7 +630,9 @@ def main():
             while True:
                 try:
                     updates = api(token, "getUpdates", {"offset": offset, "timeout": 30, "allowed_updates": ["message", "callback_query"]})
-                    offset = process_updates(token, updates, store, worker.is_alive(), history, reports)
+                    offset = process_updates(token, updates, store, worker.is_alive(), history, reports,
+                                             gate_store if gate_enabled else None,
+                                             gate_worker.is_alive() if gate_worker is not None else True)
                     if updates:
                         logger.info("Telegram update batch handled; count=%s", len(updates))
                 except TelegramError as error:
@@ -582,10 +649,15 @@ def main():
                     next_health_log = time.monotonic() + 60
         finally:
             stop.set()
-            worker.join(timeout=25)
-            history.join(timeout=25)
-            reports.join(timeout=5)
-            if not worker.is_alive() and not history.is_alive() and not reports.is_alive():
+            deadline = time.monotonic() + 50
+            workers = [worker] + ([gate_worker] if gate_worker is not None else [])
+            for thread in workers:
+                thread.join(timeout=min(25, max(0, deadline - time.monotonic())))
+            history.join(timeout=min(25, max(0, deadline - time.monotonic())))
+            reports.join(timeout=min(5, max(0, deadline - time.monotonic())))
+            if not any(thread.is_alive() for thread in workers) and not history.is_alive() and not reports.is_alive():
+                if gate_store is not None:
+                    gate_store.close()
                 store.close()
     except TelegramError as error:
         print(str(error), file=sys.stderr)

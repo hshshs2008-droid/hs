@@ -53,7 +53,28 @@ def _label(timestamp, *, utc=False):
 
 
 def _coin(symbol):
+    if symbol.endswith('_USDT'):
+        return symbol[:-5] + '/USDT'
     return symbol[:-4] + '/USDT' if symbol.endswith('USDT') else symbol
+
+
+def _quote_key(row):
+    return row.get('quote_key', row['symbol'])
+
+
+def _key_parts(key):
+    # String keys keep the original Binance-only API working.
+    return key if isinstance(key, tuple) and len(key) == 2 else ('binance', key)
+
+
+def _row_coin(row):
+    label = _coin(row['symbol'])
+    exchange = row.get('exchange_name')
+    return label + ' • ' + exchange if exchange else label
+
+
+def _quote_labels(rows):
+    return {_quote_key(row): _row_coin(row) for row in rows}
 
 
 def _column(index):
@@ -135,19 +156,22 @@ def _styles():
 def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
     """Create a private six-column report of confirmed sends, not filter scans.
 
-    ``quotes`` maps each symbol to ``{'price': decimal-string-or-None, 'at_ms': ms}``.
+    ``quotes`` maps a row's quote_key (or legacy symbol) to
+    ``{'price': decimal-string-or-None, 'at_ms': ms}``. Source-qualified keys
+    keep Gate.io and Binance prices separate even for the same coin.
     Entry prices are exactly those recorded for that recipient's Telegram delivery.
     """
-    rows = sorted(rows, key=lambda row: (row['signal_close_time'], row['symbol']))
+    rows = sorted(rows, key=lambda row: (row['signal_close_time'],
+                                        str(_key_parts(_quote_key(row))[0]), row['symbol']))
     main = [[(name, 1, False) for name in HEADERS]]
     missing_entry = missing_current = 0
     for index, row in enumerate(rows, 1):
         symbol = row['symbol']
         entry = _price(row.get('quote_price'))
-        current = _price(quotes.get(symbol, {}).get('price'))
+        current = _price(quotes.get(_quote_key(row), {}).get('price'))
         missing_entry += entry is None
         missing_current += current is None
-        values = [(index, 0, True), (_coin(symbol), 0, False),
+        values = [(index, 0, True), (_row_coin(row), 0, False),
                   (_label(row['signal_close_time'] + 1), 0, False),
                   (entry if entry is not None else 'غير مسجل', 2 if entry is not None else 0, entry is not None),
                   (current if current is not None else 'غير متاح', 2 if current is not None else 0, current is not None)]
@@ -170,7 +194,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('تاريخ ووقت التوصية', 'وقت إغلاق شمعة 4h التي أكملت الإشارة، وفق التوقيت المحلي المضبوط للبوت مع التوقيت الصيفي والشتوي.'),
                 ('سعر الإشارة', 'السعر الفعلي الظاهر عند إرسال الرسالة؛ قد يختلف وقت الإرسال عن وقت شمعة الإشارة.'),
                 ('نسبة التغير', '(السعر الحالي ÷ السعر وقت الإرسال − 1) × 100؛ ليست نتيجة صفقة منفذة ولا تشمل الرسوم.'),
-                ('الأسعار الحالية', 'لقطة سعر واحدة لكل عملة عند تجهيز التقرير؛ أوقات جلبها موضحة أدناه، وليست جميعها في اللحظة نفسها.'),
+                ('الأسعار الحالية', 'لقطة سعر واحدة لكل عملة على منصتها عند تجهيز التقرير؛ أوقات جلبها موضحة أدناه، وليست جميعها في اللحظة نفسها.'),
                 ('الأسعار القديمة', 'غير مسجل تعني عدم حفظ السعر الأصلي؛ لا يتم تخمينه أو استبداله بسعر الشمعة.'),
                 ('الدقة', 'قد يقرّب Excel الخلايا الرقمية إلى 15 رقماً معنوياً؛ النصوص الأصلية الكاملة محفوظة أدناه.'),
                 ('تكرار الإرسال', 'صف واحد لكل توصية تلقاها هذا المستلم؛ عند تكرار التسليم تُستخدم أول رسالة مؤكدة.'),
@@ -178,14 +202,15 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('تأكيد الإرسال', 'يعتمد التقرير على تأكيدات Telegram؛ المحاولات غير المؤكدة لا تدخل الحسابات. أول إرسال مؤكد قد يختلف عن أول وصول فعلي إذا فُقد رد Telegram.'),
                 ('', ''), ('تفاصيل أسعار الإرسال الأصلية', '')]
     for index, row in enumerate(rows, 1):
-        metadata.append((f"{index}. {_coin(row['symbol'])} — سعر الإرسال الأصلي", row.get('quote_price') or 'غير مسجل'))
-        metadata.append((f'{index}. وقت جلب سعر الإرسال UTC', _label(row.get('quote_at_ms'), utc=True)))
-        metadata.append((f'{index}. وقت رسالة Telegram UTC', _label(row.get('telegram_sent_at_ms'), utc=True)))
+        metadata.append((f"{index}. {_row_coin(row)} — سعر الإرسال الأصلي", row.get('quote_price') or 'غير مسجل'))
+        metadata.append((f'{index}. {_row_coin(row)} — وقت جلب سعر الإرسال UTC', _label(row.get('quote_at_ms'), utc=True)))
+        metadata.append((f'{index}. {_row_coin(row)} — وقت رسالة Telegram UTC', _label(row.get('telegram_sent_at_ms'), utc=True)))
     metadata.extend([('', ''), ('لقطات الأسعار الحالية', '')])
-    for symbol in sorted({row['symbol'] for row in rows}):
-        quote = quotes.get(symbol, {})
-        metadata.append((_coin(symbol) + ' — السعر الحالي الأصلي', quote.get('price') or 'غير متاح'))
-        metadata.append((_coin(symbol) + ' — وقت جلب السعر UTC', _label(quote.get('at_ms'), utc=True)))
+    labels = _quote_labels(rows)
+    for key in sorted(labels, key=lambda value: tuple(str(part) for part in _key_parts(value))):
+        quote = quotes.get(key, {})
+        metadata.append((labels[key] + ' — السعر الحالي الأصلي', quote.get('price') or 'غير متاح'))
+        metadata.append((labels[key] + ' — وقت جلب السعر UTC', _label(quote.get('at_ms'), utc=True)))
     info = [[(value, 1 if index == 0 else 0, False) for value in values]
             for index, values in enumerate(metadata)]
     content = ET.Element('Types', xmlns=CONTENT_NS)
@@ -277,25 +302,28 @@ class ReportService:
                        'لا توجد إشارات مرسلة مسجلة بعد. يبدأ حفظ أسعار الإرسال من تفعيل هذا التحديث؛ لا يمكن استعادة الرسائل القديمة تلقائياً.')
             return
         quotes = {}
-        blocked = False
-        for symbol in sorted({row['symbol'] for row in rows}):
+        blocked_sources = set()
+        keys = {_quote_key(row) for row in rows}
+        for key in sorted(keys, key=lambda value: tuple(str(part) for part in _key_parts(value))):
+            source, _ = _key_parts(key)
             if self.stop.is_set() or not self.store.is_admin(chat_id):
                 return
-            if blocked:
-                quotes[symbol] = {'price': None, 'at_ms': None}
+            if source in blocked_sources:
+                quotes[key] = {'price': None, 'at_ms': None}
                 continue
             if self.stop.wait(self.request_delay):
                 return
             try:
-                price = self.client.latest_price(symbol)
+                price = self.client.latest_price(key)
                 if _price(price) is None:
                     raise MarketError('Invalid current report price.')
-                quotes[symbol] = {'price': price, 'at_ms': int(self.clock() * 1000)}
+                quotes[key] = {'price': price, 'at_ms': int(self.clock() * 1000)}
             except MarketError as error:
-                quotes[symbol] = {'price': None, 'at_ms': None}
+                quotes[key] = {'price': None, 'at_ms': None}
                 if error.status in (418, 429, 403, 451):
-                    blocked = True
-                logger.warning('Report quote unavailable; HTTP status=%s', error.status)
+                    blocked_sources.add(source)
+                logger.warning('Report quote unavailable; source=%s HTTP status=%s',
+                               'gate' if source == 'gate' else 'binance', error.status)
             self.heartbeat_ms = int(self.clock() * 1000)
         if self.stop.is_set() or not self.store.is_admin(chat_id):
             return
