@@ -78,104 +78,112 @@ class IndicatorTests(unittest.TestCase):
 
 class EventMatchingTests(unittest.TestCase):
     def test_same_candle_and_rsi_exact_previous_threshold(self):
-        self.assertEqual(indicators.match_events([20, 21], [10, 25], [15, 24]), (1, 1))
+        self.assertEqual(indicators.match_events([30, 31], [10, 19], [15, 18]), (1, 1))
 
     def test_stochastic_can_cross_while_still_below_twenty(self):
-        self.assertEqual(indicators.match_events([19, 21], [10, 18], [15, 17]), (1, 1))
+        self.assertEqual(indicators.match_events([29, 31], [10, 18], [15, 17]), (1, 1))
 
     def test_rsi_then_stochastic_on_next_candle(self):
-        self.assertEqual(indicators.match_events([19, 21, 22], [8, 10, 25], [9, 15, 24]),
+        self.assertEqual(indicators.match_events([29, 31, 32], [8, 10, 19], [9, 15, 18]),
                          (1, 2))
 
     def test_stochastic_then_rsi_on_next_candle(self):
-        self.assertEqual(indicators.match_events([18, 19, 21], [10, 25, 27], [15, 24, 26]),
+        self.assertEqual(indicators.match_events([28, 29, 31], [10, 19, 27], [15, 18, 26]),
                          (2, 1))
 
     def test_earlier_rsi_condition_must_persist_at_final_close(self):
-        for current_rsi in (19, 20):
+        for current_rsi in (29, 30):
             with self.subTest(current_rsi=current_rsi):
-                self.assertIsNone(indicators.match_events([19, 21, current_rsi],
-                                                          [8, 10, 25], [9, 15, 24]))
+                self.assertIsNone(indicators.match_events([29, 31, current_rsi],
+                                                          [8, 10, 19], [9, 15, 18]))
 
     def test_earlier_stochastic_condition_must_persist_at_final_close(self):
-        for current_k in (23, 24):
+        for current_k in (17, 18):
             with self.subTest(current_k=current_k):
-                self.assertIsNone(indicators.match_events([18, 19, 21],
-                                                          [10, 25, current_k], [15, 24, 24]))
+                self.assertIsNone(indicators.match_events([28, 29, 31],
+                                                          [10, 19, current_k], [15, 18, 18]))
 
     def test_stochastic_event_boundaries_need_not_persist_next_candle(self):
-        # Only K > D must persist; the second candle may exceed 30 or slope down.
-        self.assertEqual(indicators.match_events([18, 19, 21],
-                                                [10, 25, 40], [15, 24, 35]), (2, 1))
-        self.assertEqual(indicators.match_events([18, 19, 21],
-                                                [10, 25, 23], [15, 24, 22]), (2, 1))
+        # Only K > D must persist; the second candle may exceed 20 or slope down.
+        self.assertEqual(indicators.match_events([28, 29, 31],
+                                                [10, 19, 40], [15, 18, 35]), (2, 1))
+        self.assertEqual(indicators.match_events([28, 29, 31],
+                                                [10, 19, 17], [15, 18, 16]), (2, 1))
 
     def test_stale_signal_and_events_separated_by_two_candles_are_rejected(self):
-        self.assertIsNone(indicators.match_events([19, 21, 22], [10, 25, 27], [15, 24, 26]))
-        self.assertIsNone(indicators.match_events([19, 21, 22, 23],
-                                                  [8, 9, 10, 25], [9, 10, 15, 24]))
+        self.assertIsNone(indicators.match_events([29, 31, 32], [10, 19, 27], [15, 18, 26]))
+        self.assertIsNone(indicators.match_events([29, 31, 32, 33],
+                                                  [8, 9, 10, 19], [9, 10, 15, 18]))
+        self.assertIsNone(indicators.match_events([27, 28, 29, 31],
+                                                  [10, 19, 22, 24], [15, 18, 20, 21]))
 
-    def test_rsi_must_cross_above_twenty(self):
-        for rsis in ([19, 20], [21, 22], [21, 19], [None, 21], [float("nan"), 21]):
+    def test_rsi_must_cross_above_thirty(self):
+        for rsis in ([29, 30], [31, 32], [31, 29], [None, 31], [float("nan"), 31], [19, 21]):
             with self.subTest(rsis=rsis):
-                self.assertIsNone(indicators.match_events(rsis, [10, 25], [15, 24]))
+                self.assertIsNone(indicators.match_events(rsis, [10, 19], [15, 18]))
 
     def test_strict_stochastic_thresholds_and_actual_crossover(self):
         cases = [([20, 25], [19, 24]), ([10, 25], [20, 24]),
-                 ([10, 30], [15, 24]), ([10, 31], [15, 30]),
-                 ([10, 24], [15, 24]), ([16, 25], [15, 24]),
-                 ([None, 25], [15, 24]), ([10, float("inf")], [15, 24])]
+                 ([10, 20], [15, 19]), ([10, 21], [15, 20]),
+                 ([10, 19], [15, 19]), ([16, 19], [15, 18]),
+                 ([None, 19], [15, 18]), ([10, float("inf")], [15, 18]),
+                 ([10, 25], [15, 24])]
         for ks, ds in cases:
             with self.subTest(ks=ks, ds=ds):
-                self.assertIsNone(indicators.match_events([19, 21], ks, ds))
+                self.assertIsNone(indicators.match_events([29, 31], ks, ds))
+
+    def test_values_just_below_stochastic_boundary_are_accepted(self):
+        self.assertEqual(indicators.match_events([30, 30.0001], [10, 19.999], [15, 19.998]), (1, 1))
 
     def test_previous_stochastic_equality_allows_crossover(self):
-        self.assertEqual(indicators.match_events([19, 21], [15, 25], [15, 24]), (1, 1))
+        self.assertEqual(indicators.match_events([29, 31], [15, 19], [15, 18]), (1, 1))
 
     def test_crossover_with_falling_or_unchanged_line_is_rejected(self):
         cases = [([10, 19], [15, 14]), ([15, 14], [18, 13]),
                  ([10, 19], [15, 15]), ([15, 15], [18, 14])]
         for ks, ds in cases:
             with self.subTest(ks=ks, ds=ds):
-                self.assertIsNone(indicators.match_events([19, 21], ks, ds))
+                self.assertIsNone(indicators.match_events([29, 31], ks, ds))
 
     def test_recent_invalid_value_does_not_use_an_older_event(self):
-        self.assertIsNone(indicators.match_events([18, 19, 21],
-                                                  [10, 25, None], [15, 24, None]))
+        self.assertIsNone(indicators.match_events([28, 29, 31],
+                                                  [10, 19, None], [15, 18, None]))
 
     def test_insufficient_and_misaligned_series(self):
-        for rsis, ks, ds in (([], [], []), ([21], [25], [24]),
-                            ([19, 21], [10], [15, 24])):
+        for rsis, ks, ds in (([], [], []), ([31], [19], [18]),
+                            ([29, 31], [10], [15, 18])):
             self.assertIsNone(indicators.match_events(rsis, ks, ds))
 
 
 class EntrySignalTests(unittest.TestCase):
     def test_real_price_rebound_produces_one_fresh_signal(self):
-        closes = [100.0 - index for index in range(40)] + [65.0]
+        closes = [100.0 - index for index in range(40)] + [67.0]
         data = [Candle(index * 1000, index * 1000 + 999, close,
-                       close + 1, close - 1, close)
+                       close + 3, close - 1, close)
                 for index, close in enumerate(closes)]
         signal = indicators.entry_signal(data)
         self.assertIsNotNone(signal)
         self.assertEqual(signal.close_time, 40999)
         self.assertEqual(signal.rsi_event_close_time, signal.stoch_event_close_time)
-        self.assertAlmostEqual(signal.rsi_current, 100 * 4 / 17)
+        self.assertAlmostEqual(signal.rsi_current, 100 * 6 / 19)
         self.assertLess(signal.k_previous, 20)
         self.assertLess(signal.d_previous, 20)
         self.assertGreater(signal.k_current, signal.d_current)
         self.assertGreater(signal.k_current, signal.k_previous)
         self.assertGreater(signal.d_current, signal.d_previous)
-        data.append(Candle(41000, 41999, 66, 67, 65, 66))
+        self.assertLess(signal.k_current, 20)
+        self.assertLess(signal.d_current, 20)
+        data.append(Candle(41000, 41999, 68, 71, 67, 68))
         self.assertIsNone(indicators.entry_signal(data))
 
     def test_signal_values_and_event_timestamps(self):
         data = candles([1, 2, 3])
-        with patch("indicators.rsi", return_value=[19, 21, 22]), \
-                patch("indicators.stochastic", return_value=([8, 10, 25], [9, 15, 24])):
+        with patch("indicators.rsi", return_value=[29, 31, 32]), \
+                patch("indicators.stochastic", return_value=([8, 10, 19], [9, 15, 18])):
             signal = indicators.entry_signal(data)
         self.assertEqual(signal, indicators.Signal(
-            close_time=2999, rsi_previous=21, rsi_current=22,
-            k_previous=10, k_current=25, d_previous=15, d_current=24,
+            close_time=2999, rsi_previous=31, rsi_current=32,
+            k_previous=10, k_current=19, d_previous=15, d_current=18,
             rsi_event_close_time=1999, stoch_event_close_time=2999))
 
     def test_incomplete_history_has_no_signal(self):

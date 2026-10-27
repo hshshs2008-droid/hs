@@ -11,7 +11,7 @@ import time
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from indicators import entry_signal
+from indicators import STRATEGY_VERSION, entry_signal
 from market import FOUR_HOURS_MS, MarketError
 
 
@@ -40,6 +40,7 @@ def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_
     timestamps = (
         ("إغلاق الإشارة: ", "إغلاق شمعة 4h: ", "🕒 ", close_time),
         ("عبور RSI فوق 20: ", "عبور RSI فوق 20: ", "↗️ ", rsi_event_close_time),
+        ("عبور RSI فوق 30: ", "عبور RSI فوق 30: ", "↗️ ", rsi_event_close_time),
         ("تقاطع K فوق D: ", "تقاطع K فوق D: ", "🔀 ", stoch_event_close_time),
     )
     styles = {"RSI (14): ": "📊 ", "K: ": "🔹 ", "D: ": "🔸 ", "الشرطان ": "🔗 "}
@@ -79,7 +80,7 @@ def format_alert(symbol, signal, *, exchange_name="Binance Spot"):
         f"RSI (14): {signal.rsi_previous:.2f} → {signal.rsi_current:.2f}\n"
         f"K: {signal.k_previous:.2f} → {signal.k_current:.2f}\n"
         f"D: {signal.d_previous:.2f} → {signal.d_current:.2f}\n"
-        f"عبور RSI فوق 20: {_close_label(signal.rsi_event_close_time)}\n"
+        f"عبور RSI فوق 30: {_close_label(signal.rsi_event_close_time)}\n"
         f"تقاطع K فوق D: {_close_label(signal.stoch_event_close_time)}\n"
         f"{timing}"
     )
@@ -185,6 +186,21 @@ class AlertStore:
                     WHERE l.chat_id = d.chat_id AND l.symbol = d.symbol
                         AND l.signal_close_time = d.close_time AND l.status = 'sent')
             """)
+            # Retain old signals and receipts, but don't deliver the former
+            # strategy's queued alerts after a rule change. The activation
+            # boundary survives restarts and applies independently per exchange.
+            if self._metadata("strategy_version", None) != STRATEGY_VERSION:
+                existing = self._db.execute(
+                    "SELECT 1 FROM checkpoints UNION ALL SELECT 1 FROM subscriptions LIMIT 1"
+                ).fetchone()
+                activation = int(time.time() * 1000) if existing else 0
+                self._db.executemany(
+                    "INSERT INTO metadata(key,value) VALUES (?,?) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    [("strategy_version", json.dumps(STRATEGY_VERSION)),
+                     ("strategy_activation_ms", json.dumps(activation))],
+                )
+            self.strategy_activation_ms = self._metadata("strategy_activation_ms", 0)
 
     def close(self):
         with self._lock:
@@ -431,11 +447,11 @@ class AlertStore:
                           s.rsi_event_close_time, s.stoch_event_close_time
                    FROM deliveries AS d JOIN signals AS s
                    ON d.symbol = s.symbol AND d.close_time = s.close_time
-                   WHERE d.sent_at_ms IS NULL"""
-        parameters = ()
+                   WHERE d.sent_at_ms IS NULL AND d.close_time >= ?"""
+        parameters = (self.strategy_activation_ms,)
         if symbol is not None:
             query += " AND d.symbol = ?"
-            parameters = (symbol,)
+            parameters += (symbol,)
         query += " ORDER BY d.close_time, d.symbol, d.chat_id"
         with self._lock:
             rows = self._db.execute(query, parameters).fetchall()
@@ -450,8 +466,8 @@ class AlertStore:
                 return False
             return self._db.execute(
                 """SELECT 1 FROM deliveries WHERE chat_id = ? AND symbol = ?
-                   AND close_time = ? AND sent_at_ms IS NULL""",
-                (chat_id, symbol, close_time),
+                   AND close_time = ? AND sent_at_ms IS NULL AND close_time >= ?""",
+                (chat_id, symbol, close_time, self.strategy_activation_ms),
             ).fetchone() is not None
 
     def delivery_attempt(self, chat_id, symbol, close_time, sent_at_ms=None):
@@ -658,7 +674,8 @@ class Scanner:
                 status["state"] = "ready"
                 return self._finish(status)
             return self._block(MarketError("No active Binance spot USDT pairs."), status)
-        earliest_activation = min(activation for _, activation in subscribers)
+        earliest_activation = max(self.store.strategy_activation_ms,
+                                  min(activation for _, activation in subscribers))
         market_failed = False
         for symbol in self._symbols:
             if self._stop is not None and self._stop.is_set():

@@ -9,7 +9,7 @@ import threading
 import time
 
 from alerts import AlertDeliveryError, CLOSE_GRACE_MS, DELIVERY_SPACING_SECONDS, DISPLAY_TZ
-from indicators import Signal, entry_signal
+from indicators import STRATEGY_VERSION, Signal, entry_signal
 from market import FOUR_HOURS_MS, MarketError
 
 
@@ -176,6 +176,7 @@ class HistoryService:
                 try:
                     payload = reports.get(kind)
                     if (not payload or payload.get("version") != 2
+                            or payload.get("strategy_version") != STRATEGY_VERSION
                             or payload.get("window_ms") != HISTORY_WINDOW_MS):
                         continue
                     data = dict(payload["result"])
@@ -220,7 +221,8 @@ class HistoryService:
                                     ("partial", self._partial, "_saved_partial")):
             if result is not None and result is not getattr(self, saved):
                 self.store.save_history_cache(kind, {
-                    "version": 2, "window_ms": HISTORY_WINDOW_MS, "result": asdict(result),
+                    "version": 2, "strategy_version": STRATEGY_VERSION,
+                    "window_ms": HISTORY_WINDOW_MS, "result": asdict(result),
                     "cache_key": self._cache_key if kind == "complete" else None,
                 })
                 setattr(self, saved, result)

@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 from alerts import AlertStore, Scanner
 from gate_runtime import CombinedHistory, GateStore, MarketRouter, ReportStore
 from history import HISTORY_WINDOW_MS, HistoryResult, HistoryService, format_history
-from indicators import Signal
+from indicators import STRATEGY_VERSION, Signal
 from market import FOUR_HOURS_MS, MarketError
 
 
@@ -203,6 +203,7 @@ class GateRuntimeTests(unittest.TestCase):
     def test_wrong_platform_cache_is_not_reused(self):
         result = HistoryResult(int(self.now * 1000), self.close, 1, 1, (), True, {})
         self.gate.save_history_cache('complete', {'version': 2, 'window_ms': HISTORY_WINDOW_MS,
+            'strategy_version': STRATEGY_VERSION,
             'result': asdict(result), 'cache_key': [self.close, ['ABC_USDT']]})
         with self.assertLogs('history', level='WARNING'):
             service = HistoryService(Mock(), Mock(), threading.Event(), store=self.gate,

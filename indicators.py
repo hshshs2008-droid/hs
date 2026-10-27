@@ -8,6 +8,9 @@ from dataclasses import dataclass
 from math import isfinite
 
 
+STRATEGY_VERSION = "rsi30-stoch20-v1"
+
+
 def _number(value):
     """Return a finite number, or None for malformed market data."""
     if isinstance(value, bool):
@@ -111,26 +114,28 @@ def stochastic(candles, period=14, smooth_k=3, smooth_d=3):
 def match_events(rsis, ks, ds):
     """Return (RSI index, Stochastic index) only for a fresh entry signal.
 
-    RSI crosses from <= 20 to > 20. Stochastic crosses K above D, with both
-    lines below 20 on the preceding candle and below 30 on the event candle;
+    RSI crosses from <= 30 to > 30. Stochastic crosses K above D, with both
+    lines below 20 on the preceding candle and on the event candle;
     both lines must rise compared with their preceding values.
     Both events occur on the newest candle or on two consecutive candles,
     in either order; at least one event must be on the newest candle.
-    At the newest close RSI must remain above 20 and K must remain above D.
+    At the newest close RSI must remain above 30 and K must remain above D.
+    When the Stochastic event came first, its below-20 boundary and rising
+    slopes need not persist on the following RSI completion candle.
     """
     size = len(rsis)
     if size < 2 or len(ks) != size or len(ds) != size:
         return None
     if any(_number(value) is None for series in (rsis, ks, ds) for value in series[-2:]):
         return None
-    if _number(rsis[-1]) <= 20 or _number(ks[-1]) <= _number(ds[-1]):
+    if _number(rsis[-1]) <= 30 or _number(ks[-1]) <= _number(ds[-1]):
         return None
 
     def rsi_event(index):
         if index < 1:
             return False
         previous, current = _number(rsis[index - 1]), _number(rsis[index])
-        return previous is not None and current is not None and previous <= 20 < current
+        return previous is not None and current is not None and previous <= 30 < current
 
     def stoch_event(index):
         if index < 1:
@@ -140,7 +145,7 @@ def match_events(rsis, ks, ds):
         if any(value is None for value in (previous_k, current_k, previous_d, current_d)):
             return False
         return (previous_k < 20 and previous_d < 20 and previous_k <= previous_d
-                and current_k > current_d and current_k < 30 and current_d < 30
+                and current_k > current_d and current_k < 20 and current_d < 20
                 and current_k > previous_k and current_d > previous_d)
 
     newest = size - 1

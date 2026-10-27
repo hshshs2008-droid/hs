@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 from alerts import AlertDeliveryError, AlertStore, CLOSE_GRACE_MS
 from history import HISTORY_WINDOW_MS, HistoryResult, HistoryService, format_history, historical_signals
-from indicators import Signal
+from indicators import STRATEGY_VERSION, Signal
 from market import Candle, FOUR_HOURS_MS, MarketError
 
 
@@ -21,7 +21,7 @@ def candles_ending(end, count=30):
 
 
 def signal_at(end):
-    return Signal(end, 19, 21, 10, 23, 14, 21, end, end)
+    return Signal(end, 29, 31, 10, 18, 14, 16, end, end)
 
 
 class ReportText(HTMLParser):
@@ -156,7 +156,8 @@ class HistoryTests(unittest.TestCase):
 
     def test_invalid_saved_report_is_ignored_and_can_be_replaced(self):
         store = self.durable_store()
-        store.save_history_cache("complete", {"version": 2, "window_ms": HISTORY_WINDOW_MS, "result": {"matches": []}})
+        store.save_history_cache("complete", {"version": 2, "strategy_version": STRATEGY_VERSION,
+                                              "window_ms": HISTORY_WINDOW_MS, "result": {"matches": []}})
         with self.assertLogs("history", level="WARNING"):
             service = HistoryService(self.client, self.sender, self.stop, request_delay=0,
                                      clock=lambda: self.now, store=store)
@@ -282,19 +283,67 @@ class HistoryTests(unittest.TestCase):
         ds = [50] * len(candles)
         # RSI at index23 is outside the window; its adjacent stochastic event
         # at24 completes the entry inside the window. Later RSI falls again.
-        rsis[22:26] = [19, 21, 22, 19]
-        ks[23:25], ds[23:25] = [10, 23], [14, 21]
+        rsis[22:26] = [29, 31, 32, 29]
+        ks[23:25], ds[23:25] = [10, 18], [14, 16]
         # A second entry on the same coin has both events on index27.
-        rsis[26:29] = [19, 21, 18]
-        ks[26:28], ds[26:28] = [10, 23], [14, 21]
+        rsis[26:29] = [29, 31, 28]
+        ks[26:28], ds[26:28] = [10, 18], [14, 16]
         with patch("indicators.rsi", side_effect=lambda closes: rsis[:len(closes)]), \
                 patch("indicators.stochastic", side_effect=lambda prefix: (ks[:len(prefix)], ds[:len(prefix)])):
             result = historical_signals(candles, self.server_time)
         self.assertEqual([signal.close_time for signal in result], [candles[24].close_time, candles[27].close_time])
         self.assertEqual(result[0].rsi_event_close_time, candles[23].close_time)
         self.assertEqual(result[0].stoch_event_close_time, candles[24].close_time)
-        self.assertGreater(result[0].rsi_current, 20)
-        self.assertLess(rsis[25], 20)
+        self.assertGreater(result[0].rsi_current, 30)
+        self.assertLess(rsis[25], 30)
+
+    @patch("history.historical_signals")
+    def test_same_window_old_strategy_cache_is_ignored_and_rebuilt(self, detector):
+        store = self.durable_store()
+        self.service.store = store
+        detector.return_value = [signal_at(self.target)]
+        self.service.scan_once()
+        original = store.get_history_cache()["complete"]
+        self.assertEqual(original["strategy_version"], STRATEGY_VERSION)
+        for old_version in (None, "rsi20-stoch30-v1"):
+            for kind in ("complete", "partial"):
+                with self.subTest(old_version=old_version, kind=kind):
+                    payload = dict(original)
+                    payload["result"] = dict(payload["result"], complete=(kind == "complete"))
+                    if old_version is None:
+                        payload.pop("strategy_version")
+                    else:
+                        payload["strategy_version"] = old_version
+                    # Remove the other cache kind, so a valid result cannot mask rejection.
+                    store._set_metadata("history_reports", {kind: payload})
+                    offline = Mock()
+                    restored = HistoryService(offline, self.sender, self.stop, request_delay=0,
+                                              clock=lambda: self.now, store=store)
+                    self.assertIsNone(restored.cached_result())
+                    self.assertEqual(offline.mock_calls, [])
+                    # Rebuilding uses the current detector and tags the new snapshot.
+                    restored.client = self.client
+                    detector.return_value = []
+                    result = restored.scan_once()
+                    self.assertTrue(result.complete)
+                    self.assertEqual(result.matches, ())
+                    self.assertEqual(store.get_history_cache()["complete"]["strategy_version"],
+                                     STRATEGY_VERSION)
+
+    def test_real_ohlc_rebound_matches_new_thresholds_and_survives_reversal(self):
+        closes = [100.0 - i for i in range(40)] + [67.0, 50.0]
+        times = candles_ending(self.target, count=len(closes))
+        candles = [Candle(bar.open_time, bar.close_time, price, price + 3, price - 1, price)
+                   for bar, price in zip(times, closes)]
+        matches = historical_signals(candles, self.server_time)
+        self.assertEqual(len(matches), 1)
+        signal = matches[0]
+        self.assertEqual(signal.close_time, candles[-2].close_time)
+        self.assertEqual(signal.rsi_event_close_time, signal.stoch_event_close_time)
+        self.assertAlmostEqual(signal.rsi_current, 100 * 6 / 19)
+        self.assertLess(signal.k_current, 20)
+        self.assertLess(signal.d_current, 20)
+        self.assertGreater(signal.k_current, signal.d_current)
 
     @patch("history.historical_signals")
     @patch("alerts.AlertStore", side_effect=AssertionError("History must not use the alert database"))
