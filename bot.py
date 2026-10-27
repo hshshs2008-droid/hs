@@ -501,6 +501,8 @@ def main():
             from gate_runtime import GateStore
             gate_store = GateStore(gate_path, store)
             gate_client = GateClient(client, base_url=os.environ.get("API_GATE_BASE") or "https://api.gateio.ws")
+            if gate_enabled and gate_path != ":memory:":
+                gate_client.selection_path = os.path.join(os.path.dirname(gate_path), "gate-selection.sqlite3")
             if gate_enabled:
                 gate_store.eligible_symbol = gate_client.is_eligible
         stop = threading.Event()

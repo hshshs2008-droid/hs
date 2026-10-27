@@ -44,3 +44,20 @@
 - https://github.com/railwayapp/docs/blob/c8e38c2db90fb8d13008f3ca849fc78553dedeae/content/docs/pricing/faqs.md
 - https://github.com/railwayapp/docs/blob/c8e38c2db90fb8d13008f3ca849fc78553dedeae/content/docs/volumes/reference.md
 - https://github.com/railwayapp/docs/blob/c8e38c2db90fb8d13008f3ca849fc78553dedeae/content/docs/deployments/serverless.md
+# Gate fixed universe
+
+When Gate is enabled, its first discovery ranks eligible non-Binance USDT
+pairs by median quote volume across seven completed UTC calendar days.
+Only positive medians with all seven daily candles qualify; the highest
+800 are retained (symbol order breaks ties). No absolute volume floor or
+per-4h volume condition is imposed. Volume ranking is not a guarantee of
+order-book liquidity; spread/depth review requires actual market evidence.
+
+`gate-selection.sqlite3` beside the Gate state database persists the anchor
+day, original candidates, completed volume reads, and final selection.
+Initial discovery can take time; interrupted reads resume without publishing
+a partially ranked universe. Once saved, the selection does not automatically
+rotate or refill. Delisted pairs and coins newly available on Binance are
+still excluded. Retain this file on the persistent volume. A monthly review
+is manual, not scheduled. Existing historical signal/receipt records remain.
+

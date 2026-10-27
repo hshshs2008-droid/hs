@@ -14,6 +14,9 @@ import os
 import sys
 import threading
 import time
+import sqlite3
+from contextlib import closing
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
@@ -111,6 +114,71 @@ class GateClient:
         self._eligible_symbols = frozenset()
         self._cooldown_until = 0.0
         self._cooldown_status = None
+        self.selection_path = None
+        self._selection_lock = threading.Lock()
+
+    def _select_fixed(self, eligible):
+        """Persist a fixed top 800; checkpoint discovery so restarts resume safely.
+
+        Rank by median USDT volume of seven complete UTC days. New listings
+        lacking all seven days are excluded. No absolute volume floor is used.
+        """
+        if self.selection_path is None:
+            return eligible
+        with self._selection_lock:
+            Path(self.selection_path).parent.mkdir(parents=True, exist_ok=True)
+            with closing(sqlite3.connect(self.selection_path, timeout=20)) as db:
+                db.execute('CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+                db.execute('CREATE TABLE IF NOT EXISTS scores (symbol TEXT PRIMARY KEY, volume TEXT NOT NULL)')
+                saved = db.execute("SELECT value FROM config WHERE key='selected'").fetchone()
+                if saved:
+                    return set(json.loads(saved[0])) & eligible
+                anchor = db.execute("SELECT value FROM config WHERE key='day'").fetchone()
+                if anchor is None:
+                    day = self.server_time() // 86400000 * 86400
+                    with db:
+                        db.execute("INSERT INTO config VALUES ('day', ?)", (str(day),))
+                        db.execute("INSERT INTO config VALUES ('candidates', ?)", (json.dumps(sorted(eligible)),))
+                else:
+                    day = int(anchor[0])
+                candidates = json.loads(db.execute("SELECT value FROM config WHERE key='candidates'").fetchone()[0])
+                done = dict(db.execute('SELECT symbol, volume FROM scores'))
+                expected = set(range(day - 7 * 86400, day, 86400))
+                for symbol in candidates:
+                    if symbol in done or symbol not in eligible:
+                        continue
+                    time.sleep(0.15)
+                    rows = self._get('/spot/candlesticks', {'currency_pair': symbol, 'interval': '1d',
+                                    'from': day - 7 * 86400, 'to': day - 1})
+                    if not isinstance(rows, list):
+                        raise MarketError('Invalid Gate daily volume history.')
+                    volumes = {}
+                    for row in rows:
+                        if not isinstance(row, list) or len(row) not in (6, 7, 8):
+                            raise MarketError('Invalid Gate daily volume row.')
+                        try:
+                            stamp = int(row[0])
+                        except (ValueError, TypeError):
+                            raise MarketError('Invalid Gate daily timestamp.') from None
+                        if stamp not in expected or stamp in volumes:
+                            raise MarketError('Unexpected Gate daily timestamp.')
+                        _volume(row[1])
+                        if len(row) == 8 and not _closed_flag(row[7]):
+                            continue
+                        if len(row) == 7 and _is_closed_flag(row[6]) and not _closed_flag(row[6]):
+                            continue
+                        volumes[stamp] = Decimal(str(row[1]))
+                    median = sorted(volumes.values())[3] if set(volumes) == expected else Decimal(0)
+                    with db:
+                        db.execute('INSERT INTO scores VALUES (?, ?)', (symbol, str(median)))
+                    done[symbol] = str(median)
+                ranked = sorted((s for s in candidates if s in eligible and Decimal(done.get(s, '0')) > 0),
+                                key=lambda s: (-Decimal(done[s]), s))[:800]
+                if not ranked:
+                    raise MarketError('No Gate pairs have a positive seven-day median volume.')
+                with db:
+                    db.execute("INSERT INTO config VALUES ('selected', ?)", (json.dumps(ranked),))
+                return set(ranked)
 
     def _get(self, path, params=None):
         url = self.base_url + '/api/v4' + path
@@ -189,6 +257,7 @@ class GateClient:
                 raise MarketError('Gate.io returned an invalid spot pair identifier.')
             if base.upper() not in excluded:
                 selected.add(symbol)
+        selected = self._select_fixed(selected)
         with self._universe_lock:
             self._eligible_symbols = frozenset(selected)
         return sorted(selected)
