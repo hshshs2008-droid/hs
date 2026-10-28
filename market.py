@@ -18,6 +18,14 @@ from urllib.request import Request, urlopen
 FOUR_HOURS_MS = 4 * 60 * 60 * 1000
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 DEFAULT_BASE_URL = "https://api.binance.com"
+EXCLUDED_BASE_ASSETS = frozenset({'APPB', 'BSPB', 'GEVB', 'SKDDB', 'SKUUB'})
+EXCLUDED_PAIRS = frozenset(base + suffix for base in EXCLUDED_BASE_ASSETS
+                           for suffix in ('USDT', '_USDT'))
+
+
+def is_excluded_pair(symbol):
+    """Explicit owner exclusions; preserve unrelated assets with similar names."""
+    return symbol in EXCLUDED_PAIRS
 
 
 class MarketError(Exception):
@@ -202,6 +210,8 @@ class BinanceClient:
                 symbol = row.get("symbol")
                 if not _valid_symbol(symbol):
                     raise MarketError("Binance returned an invalid spot symbol.")
+                if is_excluded_pair(symbol):
+                    continue
                 symbols.add(symbol)
         return sorted(symbols)
 

@@ -21,7 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
-from market import BinanceClient, Candle, FOUR_HOURS_MS, MAX_RESPONSE_BYTES, MarketError, _retry_seconds
+from market import BinanceClient, Candle, FOUR_HOURS_MS, MAX_RESPONSE_BYTES, MarketError, _retry_seconds, EXCLUDED_BASE_ASSETS
 
 
 DEFAULT_GATE_BASE = 'https://api.gateio.ws'
@@ -240,7 +240,7 @@ class GateClient:
                 or not all(isinstance(symbol, str) and symbol.endswith('USDT')
                            and symbol.isalnum() for symbol in binance)):
             raise MarketError('The Binance exclusion universe is unavailable for Gate.io.')
-        excluded = {symbol[:-4].upper() for symbol in binance}
+        excluded = {symbol[:-4].upper() for symbol in binance} | EXCLUDED_BASE_ASSETS
         result = self._get('/spot/currency_pairs')
         if not isinstance(result, list) or not result:
             raise MarketError('Gate.io returned invalid or empty exchange information.')

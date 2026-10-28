@@ -12,7 +12,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from indicators import STRATEGY_VERSION, entry_signal
-from market import FOUR_HOURS_MS, MarketError
+from market import FOUR_HOURS_MS, MarketError, is_excluded_pair
 
 
 CLOSE_GRACE_MS = 15_000
@@ -458,9 +458,11 @@ class AlertStore:
         return [(chat_id, symbol, close_time,
                  _refresh_alert_times(message, close_time, rsi_time, stoch_time))
                 for chat_id, symbol, close_time, message, rsi_time, stoch_time in rows
-                if self.can_access(chat_id)]
+                if self.can_access(chat_id) and not is_excluded_pair(symbol)]
 
     def is_pending(self, chat_id, symbol, close_time):
+        if is_excluded_pair(symbol):
+            return False
         with self._lock:
             if not self.can_access(chat_id):
                 return False
