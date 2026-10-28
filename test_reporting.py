@@ -47,11 +47,12 @@ class WorkbookTests(unittest.TestCase):
             tree = ET.fromstring(archive.read('xl/worksheets/sheet1.xml'))
             self.assertEqual(tree.find('s:sheetViews/s:sheetView', NS).get('rightToLeft'), '1')
             self.assertEqual(tree.find('s:sheetViews/s:sheetView/s:pane', NS).get('state'), 'frozen')
-            self.assertEqual(tree.find('s:autoFilter', NS).get('ref'), 'A1:F2')
+            self.assertEqual(tree.find('s:autoFilter', NS).get('ref'), 'A1:H2')
         table = cells(data)
         self.assertEqual(tuple(table[0]), HEADERS)
         self.assertEqual(table[1][1], 'BTC/USDT')
-        self.assertEqual(table[1][3:], [Decimal('100'), Decimal('125'), Decimal('.25')])
+        self.assertEqual(table[1][2:5], ['Binance', '2026-10-25', '10:00'])
+        self.assertEqual(table[1][5:], [Decimal('100'), Decimal('125'), Decimal('.25')])
         metadata = str(cells(data, 'sheet2'))
         self.assertIn('UTC', metadata)
         self.assertIn('2026-10-25 (08:00:02)', metadata)
@@ -66,8 +67,10 @@ class WorkbookTests(unittest.TestCase):
         workbook = load_workbook(BytesIO(data), data_only=True)
         self.addCleanup(workbook.close)
         sheet = workbook.worksheets[0]
-        self.assertEqual(sheet['D2'].value, 100)
-        self.assertAlmostEqual(sheet['F2'].value, -.1)
+        self.assertEqual(sheet['D2'].value, '2026-10-25')
+        self.assertEqual(sheet['E2'].value, '10:00')
+        self.assertEqual(sheet['F2'].value, 100)
+        self.assertAlmostEqual(sheet['H2'].value, -.1)
         self.assertEqual(sheet.freeze_panes, 'A2')
         self.assertTrue(sheet.sheet_view.rightToLeft)
 
@@ -78,16 +81,16 @@ class WorkbookTests(unittest.TestCase):
                   'BTCUSDT': {'price': '150', 'at_ms': NOW}}
         table = cells(build_report(rows, quotes, NOW))
         self.assertEqual([entry[1] for entry in table[1:]], ['BTC/USDT', 'BTC/USDT', 'LOW/USDT'])
-        self.assertEqual([entry[5] for entry in table[1:]], [Decimal('.5'), Decimal('-.25'), Decimal('1')])
-        self.assertEqual(table[3][3], Decimal('1e-39'))
+        self.assertEqual([entry[7] for entry in table[1:]], [Decimal('.5'), Decimal('-.25'), Decimal('1')])
+        self.assertEqual(table[3][5], Decimal('1e-39'))
 
     def test_missing_prices_remain_explicit_without_fake_percentages(self):
         rows = [row(entry=None), row('OLDUSDT', '2', close=NOW-1000)]
         data = build_report(rows, {'BTCUSDT': {'price': '130', 'at_ms': NOW}}, NOW)
         table = cells(data)
-        self.assertEqual(table[1][4:], ['غير متاح', 'غير محسوب'])
-        self.assertEqual(table[2][3], 'غير مسجل')
-        self.assertEqual(table[2][5], 'غير محسوب')
+        self.assertEqual(table[1][6:], ['غير متاح', 'غير محسوب'])
+        self.assertEqual(table[2][5], 'غير مسجل')
+        self.assertEqual(table[2][7], 'غير محسوب')
         self.assertIn('لا يتم تخمينه', str(cells(data, 'sheet2')))
 
     def test_formula_like_symbols_are_inline_text_and_illegal_xml_is_removed(self):
@@ -103,8 +106,8 @@ class WorkbookTests(unittest.TestCase):
             close = int(datetime(2026, 10, day, 8, tzinfo=timezone.utc).timestamp()*1000)-1
             rows.append(row(close=close))
         table = cells(build_report(rows, {}, NOW))
-        self.assertEqual(table[1][2], '2026-10-24 (11:00:00)')
-        self.assertEqual(table[2][2], '2026-10-25 (10:00:00)')
+        self.assertEqual(table[1][3:5], ['2026-10-24', '11:00'])
+        self.assertEqual(table[2][3:5], ['2026-10-25', '10:00'])
 
     def test_source_qualified_prices_never_cross_same_coin_or_collapse_rows(self):
         rows = [row('ABC_USDT', '2', exchange_name='Gate.io Spot', quote_key=('gate', 'ABC_USDT')),
@@ -113,16 +116,18 @@ class WorkbookTests(unittest.TestCase):
                   ('binance', 'ABCUSDT'): {'price': '125', 'at_ms': NOW+2000}}
         data = build_report(rows, quotes, NOW+3000)
         table = cells(data)
-        self.assertEqual(len(table[0]), 6)
+        self.assertEqual(len(table[0]), 8)
         self.assertEqual([entry[1] for entry in table[1:]],
-                         ['ABC/USDT • Binance Spot', 'ABC/USDT • Gate.io Spot'])
-        self.assertEqual([entry[4:] for entry in table[1:]],
+                         ['ABC/USDT', 'ABC/USDT'])
+        self.assertEqual([entry[2] for entry in table[1:]], ['Binance', 'Gate.io'])
+        self.assertEqual([entry[6:] for entry in table[1:]],
                          [[Decimal('125'), Decimal('.25')], [Decimal('3'), Decimal('.5')]])
         metadata = cells(data, 'sheet2')
-        self.assertIn(['ABC/USDT • Binance Spot — السعر الحالي الأصلي', '125'], metadata)
-        self.assertIn(['ABC/USDT • Gate.io Spot — السعر الحالي الأصلي', '3'], metadata)
-        self.assertIn(['ABC/USDT • Gate.io Spot — وقت جلب السعر UTC', '2026-10-25 (08:00:01)'], metadata)
-        self.assertIn(['ABC/USDT • Binance Spot — وقت جلب السعر UTC', '2026-10-25 (08:00:02)'], metadata)
+        self.assertIn(['ABC/USDT • Binance — السعر الحالي الأصلي', '125'], metadata)
+        self.assertIn(['ABC/USDT • Gate.io — السعر الحالي الأصلي', '3'], metadata)
+        self.assertIn(['ABC/USDT • Gate.io — وقت جلب السعر UTC', '2026-10-25 (08:00:01)'], metadata)
+        self.assertIn(['ABC/USDT • Binance — وقت جلب السعر UTC', '2026-10-25 (08:00:02)'], metadata)
+        self.assertNotIn('Spot', str(table) + str(metadata))
 
     def test_missing_gate_quote_does_not_reuse_binance_price_and_native_unicode_is_preserved(self):
         rows = [row('币安_USDT', '2', exchange_name='Gate.io Spot', quote_key=('gate', '币安_USDT'),
@@ -131,8 +136,8 @@ class WorkbookTests(unittest.TestCase):
                   ('binance', '币安_USDT'): {'price': '888', 'at_ms': NOW}}
         data = build_report(rows, quotes, NOW)
         table = cells(data)
-        self.assertEqual(table[1][1], '币安/USDT • Gate.io Spot')
-        self.assertEqual(table[1][4:], ['غير متاح', 'غير محسوب'])
+        self.assertEqual(table[1][1:3], ['币安/USDT', 'Gate.io'])
+        self.assertEqual(table[1][6:], ['غير متاح', 'غير محسوب'])
         all_text = str(table) + str(cells(data, 'sheet2'))
         self.assertNotIn('987654321', all_text)
         self.assertNotIn('12345678', all_text)
@@ -206,7 +211,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(self.client.latest_price.call_count, 1)
         self.assertTrue(self.document.called)
         table = cells(self.document.call_args.args[1])
-        self.assertTrue(all(row[4] == 'غير متاح' for row in table[1:]))
+        self.assertTrue(all(row[6] == 'غير متاح' for row in table[1:]))
 
     def test_owner_change_during_generation_prevents_document_delivery(self):
         def transfer_owner(symbol):
@@ -239,7 +244,7 @@ class ServiceTests(unittest.TestCase):
                          [('binance', 'ABCUSDT'), ('gate', 'ABC_USDT')])
         table = cells(self.document.call_args.args[1])
         self.assertEqual(len(table)-1, 3)
-        self.assertEqual([entry[5] for entry in table[1:]], [Decimal('2'), Decimal('.25'), Decimal('.5')])
+        self.assertEqual([entry[7] for entry in table[1:]], [Decimal('2'), Decimal('.25'), Decimal('.5')])
 
     def test_gate_cooldown_keeps_binance_quote_and_skips_only_remaining_gate_pairs(self):
         self.store.report_rows.return_value = [
@@ -256,9 +261,9 @@ class ServiceTests(unittest.TestCase):
         self.assertNotIn('private diagnostic', str(log.output))
         self.assertEqual(self.client.latest_price.call_count, 2)
         table = cells(self.document.call_args.args[1])
-        self.assertEqual(table[1][4:], [Decimal('125'), Decimal('.25')])
-        self.assertEqual(table[2][4:], ['غير متاح', 'غير محسوب'])
-        self.assertEqual(table[3][4:], ['غير متاح', 'غير محسوب'])
+        self.assertEqual(table[1][6:], [Decimal('125'), Decimal('.25')])
+        self.assertEqual(table[2][6:], ['غير متاح', 'غير محسوب'])
+        self.assertEqual(table[3][6:], ['غير متاح', 'غير محسوب'])
 
     def test_binance_cooldown_does_not_prevent_later_gate_quote(self):
         self.store.report_rows.return_value = [
@@ -273,8 +278,8 @@ class ServiceTests(unittest.TestCase):
             self.service._generate(100)
         self.assertEqual(self.client.latest_price.call_count, 2)
         table = cells(self.document.call_args.args[1])
-        self.assertEqual(table[1][4:], ['غير متاح', 'غير محسوب'])
-        self.assertEqual(table[2][4:], [Decimal('3'), Decimal('.5')])
+        self.assertEqual(table[1][6:], ['غير متاح', 'غير محسوب'])
+        self.assertEqual(table[2][6:], [Decimal('3'), Decimal('.5')])
 
     def test_generation_failure_is_sanitized_and_worker_remains_available(self):
         self.store.report_rows.side_effect = ValueError('secret detail')

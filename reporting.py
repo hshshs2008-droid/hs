@@ -18,7 +18,7 @@ SHEET_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 PACKAGE_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
 CONTENT_NS = 'http://schemas.openxmlformats.org/package/2006/content-types'
-HEADERS = ('مسلسل', 'العملة', 'تاريخ ووقت التوصية',
+HEADERS = ('مسلسل', 'العملة', 'المنصة', 'تاريخ التوصية', 'وقت التوصية',
            'السعر وقت الإشارة (عند الإرسال) USDT', 'السعر الحالي USDT', 'التغير %')
 REPORT_ERROR = 'تعذر تجهيز تقرير Excel الآن؛ أعد /report لاحقاً.'
 MAX_DOCUMENT_BYTES = 45 * 1024 * 1024
@@ -69,8 +69,15 @@ def _key_parts(key):
 
 def _row_coin(row):
     label = _coin(row['symbol'])
+    return label + ' • ' + _platform(row)
+
+
+def _platform(row):
     exchange = row.get('exchange_name')
-    return label + ' • ' + exchange if exchange else label
+    if exchange:
+        return exchange.removesuffix(' Spot')
+    source = _key_parts(_quote_key(row))[0]
+    return {'binance': 'Binance', 'gate': 'Gate.io'}.get(source, str(source))
 
 
 def _quote_labels(rows):
@@ -154,7 +161,7 @@ def _styles():
 
 
 def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
-    """Create a private six-column report of confirmed sends, not filter scans.
+    """Create a private eight-column report of confirmed sends, not filter scans.
 
     ``quotes`` maps a row's quote_key (or legacy symbol) to
     ``{'price': decimal-string-or-None, 'at_ms': ms}``. Source-qualified keys
@@ -171,8 +178,11 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
         current = _price(quotes.get(_quote_key(row), {}).get('price'))
         missing_entry += entry is None
         missing_current += current is None
-        values = [(index, 0, True), (_row_coin(row), 0, False),
-                  (_label(row['signal_close_time'] + 1), 0, False),
+        closed = datetime.fromtimestamp((row['signal_close_time'] + 1) / 1000, DISPLAY_TZ)
+        values = [(index, 0, True), (_coin(symbol), 0, False),
+                  (_platform(row), 0, False),
+                  (closed.strftime('%Y-%m-%d'), 0, False),
+                  (closed.strftime('%H:%M'), 0, False),
                   (entry if entry is not None else 'غير مسجل', 2 if entry is not None else 0, entry is not None),
                   (current if current is not None else 'غير متاح', 2 if current is not None else 0, current is not None)]
         if entry is not None and current is not None:
@@ -236,7 +246,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                                   ('xl/workbook.xml', workbook), ('xl/_rels/workbook.xml.rels', relationships)):
             archive.writestr(filename, ET.tostring(element, encoding='utf-8', xml_declaration=True))
         archive.writestr('xl/styles.xml', _styles())
-        archive.writestr('xl/worksheets/sheet1.xml', _worksheet(main, (10, 20, 30, 30, 25, 18), autofilter=True))
+        archive.writestr('xl/worksheets/sheet1.xml', _worksheet(main, (10, 24, 16, 18, 16, 30, 25, 18), autofilter=True))
         archive.writestr('xl/worksheets/sheet2.xml', _worksheet(info, (46, 110)))
     return output.getvalue()
 
