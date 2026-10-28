@@ -125,7 +125,8 @@ def _styles():
     root = ET.Element(_tag('styleSheet'))
     formats = ET.SubElement(root, _tag('numFmts'), count='2')
     ET.SubElement(formats, _tag('numFmt'), numFmtId='164', formatCode='0.########################################')
-    ET.SubElement(formats, _tag('numFmt'), numFmtId='165', formatCode='[Green]+0.00%;[Red]-0.00%;0.00%')
+    # Excel palette Color10 is dark green (#008000); named Green is bright lime.
+    ET.SubElement(formats, _tag('numFmt'), numFmtId='165', formatCode='[Color10]+0.00%;[Red]-0.00%;0.00%')
     fonts = ET.SubElement(root, _tag('fonts'), count='2')
     for bold in (False, True):
         font = ET.SubElement(fonts, _tag('font'))
