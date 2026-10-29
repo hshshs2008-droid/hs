@@ -382,7 +382,7 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
             reply = ("تنبيهاتك: " + ("مفعّلة" if active else "متوقفة")
                      + "\n\nBinance Spot — القائمة المعتمدة:\n" + status_text)
             if state.get("symbols_checked") is not None:
-                reply += f"\nالأزواج المفحوصة في آخر دورة: {state['symbols_checked']}"
+                reply += f"\nالأزواج: {state['symbols_checked']}/{state.get('symbols_total', '—')}"
             last_scan = state.get("last_scan_ms")
             if isinstance(last_scan, (int, float)) and not isinstance(last_scan, bool):
                 from alerts import DISPLAY_TZ
