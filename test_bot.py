@@ -29,8 +29,8 @@ class BotTests(unittest.TestCase):
             bot.send_alert_message("test-token", client, 42, message)
         bot.send_alert_message("test-token", client, 42, message)
         first, second = [call.args[2]["text"] for call in api.call_args_list]
-        self.assertIn("💵 67,500.12 USDT (عند الإرسال)", first)
-        self.assertIn("💵 67,601.34 USDT (عند الإرسال)", second)
+        self.assertIn("💵 67,500.12 USDT", first)
+        self.assertIn("💵 67,601.34 USDT", second)
         self.assertTrue(first.endswith(message.split("\n", 1)[1]))
         self.assertEqual(client.latest_price.call_count, 2)
         self.assertNotIn("💵", message)

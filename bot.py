@@ -118,7 +118,7 @@ def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_
                 quote_at_ms = int(time.time() * 1000)
                 whole, dot, fraction = price.partition(".")
                 display = f"{int(whole):,}" + (dot + fraction if fraction else "")
-                quote = f"💵 {display} USDT (عند الإرسال)"
+                quote = f"💵 {display} USDT"
             except MarketError as error:
                 logger.warning("Latest price unavailable; HTTP status=%s", error.status)
                 quote = "💵 السعر غير متاح"
