@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from cmc_universe import CmcCheckError, fetch_once, main, normalize, validate
+from cmc_universe import CmcCheckError, export_market_data, fetch_once, main, normalize, validate
 
 
 def sample():
@@ -15,6 +15,19 @@ def sample():
 
 
 class CmcTests(unittest.TestCase):
+    @patch('gate_market.GateClient')
+    @patch('market.BinanceClient')
+    def test_public_metadata_export_without_cmc_or_universe_mutation(self, binance, gate):
+        binance.return_value._get.return_value = {'symbols': [{'symbol': 'BTCUSDT'}]}
+        gate.return_value._get.side_effect = [[{'id': 'ABC_USDT'}], [{'currency': 'ABC', 'name': 'Example'}]]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'metadata.json'
+            with patch('cmc_universe.download', side_effect=AssertionError('No CMC requests')):
+                result = export_market_data(path)
+            self.assertTrue(path.exists())
+            self.assertEqual(result['gate_currencies'][0]['name'], 'Example')
+        gate.return_value.spot_symbols.assert_not_called()
+
     def test_rank201_cap_increase_sorted_without_losing_original_rank_or_coin(self):
         original = sample()
         original['coins'][200]['market_cap_usd'] = 1100

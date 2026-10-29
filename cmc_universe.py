@@ -120,16 +120,57 @@ def fetch_once(path, key):
         return snapshot, False
 
 
+def export_market_data(path):
+    """Read public exchange identity data for offline review; no CMC credits."""
+    from market import BinanceClient
+    from gate_market import GateClient
+    binance = BinanceClient()
+    gate = GateClient(binance, base_url=os.environ.get('API_GATE_BASE') or 'https://api.gateio.ws')
+    exchange = binance._get('/api/v3/exchangeInfo', {
+        'permissions': 'SPOT', 'showPermissionSets': 'false', 'symbolStatus': 'TRADING'})
+    pairs = gate._get('/spot/currency_pairs')
+    currencies = gate._get('/spot/currencies')
+    if (not isinstance(exchange, dict) or not isinstance(exchange.get('symbols'), list)
+            or not isinstance(pairs, list) or not pairs or not isinstance(currencies, list) or not currencies):
+        raise CmcCheckError('EXCHANGE_METADATA_INVALID')
+    snapshot = {'version': 1, 'binance': exchange['symbols'],
+                'gate_pairs': pairs, 'gate_currencies': currencies}
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent,
+                                         prefix='.market-data-', delete=False) as output:
+            temporary = output.name
+            json.dump(snapshot, output, ensure_ascii=False, allow_nan=False)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            os.unlink(temporary)
+    return snapshot
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--fetch', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--fetch', action='store_true')
+    mode.add_argument('--market-data', action='store_true', help='export public exchange metadata for identity review')
     args = parser.parse_args()
-    if not args.fetch:
+    if not args.fetch and not args.market_data:
         parser.print_help()
         return 0
     state = Path(os.environ.get('ALERT_STATE_PATH') or '/data/alerts.sqlite3')
     path = state.parent / 'cmc-top1000.json'
     try:
+        if args.market_data:
+            destination = state.parent / 'cmc-exchange-metadata.json'
+            export_market_data(destination)
+            print('MARKET_DATA_OK saved=' + str(destination))
+            print('cmc_requests=0 live_scanner_changed=false')
+            return 0
         snapshot, cached = fetch_once(path, os.environ.get('CMC_API_KEY', '').strip())
         print('CMC_OK count=1000 order=market_cap_desc cached=' + str(cached).lower())
         print('saved=' + str(path))
