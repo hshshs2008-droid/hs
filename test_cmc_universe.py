@@ -1,10 +1,12 @@
 import copy
+from contextlib import redirect_stdout
+from io import StringIO
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from cmc_universe import fetch_once, validate
+from cmc_universe import CmcCheckError, fetch_once, main, validate
 
 
 def sample():
@@ -13,6 +15,16 @@ def sample():
 
 
 class CmcTests(unittest.TestCase):
+    def test_cli_exposes_only_controlled_diagnostic_codes(self):
+        for error, expected in ((CmcCheckError('CMC_API_KEY_MISSING'), 'reason=CMC_API_KEY_MISSING'),
+                                (ValueError('secret_key_value'), 'type=ValueError')):
+            output = StringIO()
+            with patch('sys.argv', ['cmc_universe.py', '--fetch']), \
+                    patch('cmc_universe.fetch_once', side_effect=error), redirect_stdout(output):
+                self.assertEqual(main(), 1)
+            self.assertIn(expected, output.getvalue())
+            self.assertNotIn('secret_key_value', output.getvalue())
+
     def test_ids_not_tickers_define_unique_assets(self):
         self.assertEqual(len(validate(sample())['coins']), 1000)
 

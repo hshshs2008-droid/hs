@@ -14,38 +14,48 @@ from urllib.error import HTTPError
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 
+class CmcCheckError(ValueError):
+    """Only local diagnostic codes, never remote response text or secrets."""
+
+
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise ValueError('Redirect rejected')
+        raise CmcCheckError('REDIRECT_REJECTED')
 
 
 def validate(snapshot):
     if not isinstance(snapshot, dict) or snapshot.get('version') != 1:
-        raise ValueError('Invalid snapshot version')
+        raise CmcCheckError('SNAPSHOT_VERSION_INVALID')
     coins = snapshot.get('coins')
     if not isinstance(coins, list) or len(coins) != 1000:
-        raise ValueError('Expected exactly 1000 coins')
+        raise CmcCheckError('COIN_COUNT_' + str(len(coins) if isinstance(coins, list) else 'INVALID'))
     ids = set()
     previous = math.inf
     for rank, coin in enumerate(coins, 1):
         if not isinstance(coin, dict) or type(coin.get('id')) is not int or coin['id'] <= 0:
-            raise ValueError('Invalid CMC identity')
-        if coin['id'] in ids or type(coin.get('cmc_rank')) is not int or coin['cmc_rank'] != rank:
-            raise ValueError('Duplicate identity or unexpected ranking')
+            raise CmcCheckError('IDENTITY_INVALID_AT_' + str(rank))
+        if coin['id'] in ids:
+            raise CmcCheckError('DUPLICATE_ID_AT_' + str(rank))
+        if type(coin.get('cmc_rank')) is not int or coin['cmc_rank'] != rank:
+            actual = coin.get('cmc_rank')
+            raise CmcCheckError('RANK_EXPECTED_' + str(rank) + '_ACTUAL_' +
+                                (str(actual) if type(actual) is int else 'INVALID'))
         ids.add(coin['id'])
         for field in ('name', 'symbol', 'slug'):
             if not isinstance(coin.get(field), str) or not coin[field].strip():
-                raise ValueError('Missing identity metadata')
+                raise CmcCheckError('IDENTITY_METADATA_MISSING_AT_' + str(rank))
         cap = coin.get('market_cap_usd')
-        if type(cap) not in (int, float) or not math.isfinite(cap) or cap <= 0 or cap > previous:
-            raise ValueError('Invalid descending market cap')
+        if type(cap) not in (int, float) or not math.isfinite(cap) or cap <= 0:
+            raise CmcCheckError('MARKET_CAP_INVALID_AT_' + str(rank))
+        if cap > previous:
+            raise CmcCheckError('MARKET_CAP_ORDER_INVALID_AT_' + str(rank))
         previous = cap
     return snapshot
 
 
 def download(key):
     if not key:
-        raise ValueError('Missing CMC_API_KEY')
+        raise CmcCheckError('CMC_API_KEY_MISSING')
     request = Request(
         'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest'
         '?start=1&limit=1000&sort=market_cap&sort_dir=desc&convert=USD&cryptocurrency_type=all',
@@ -53,11 +63,12 @@ def download(key):
     with build_opener(NoRedirect()).open(request, timeout=30) as response:
         raw = response.read(16 * 1024 * 1024 + 1)
     if len(raw) > 16 * 1024 * 1024:
-        raise ValueError('Oversized CMC response')
+        raise CmcCheckError('RESPONSE_TOO_LARGE')
     data = json.loads(raw)
     status = data.get('status', {})
     if status.get('error_code') != 0:
-        raise ValueError('CMC API rejected request')
+        code = status.get('error_code')
+        raise CmcCheckError('API_REJECTED_CODE_' + (str(code) if type(code) is int else 'INVALID'))
     coins = []
     for coin in data.get('data', []):
         usd = coin['quote']['USD']
@@ -112,7 +123,8 @@ def main():
     except Exception as error:
         # Never print remote bodies, request headers, key, or raw exception text.
         print('CMC_FAILED type=' + type(error).__name__ +
-              (' http=' + str(error.code) if isinstance(error, HTTPError) else ''))
+              (' http=' + str(error.code) if isinstance(error, HTTPError) else '') +
+              (' reason=' + str(error) if isinstance(error, CmcCheckError) else ''))
         return 1
 
 
