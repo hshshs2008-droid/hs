@@ -52,6 +52,9 @@ Set `CMC_API_KEY` in Railway, then explicitly run `python3 cmc_universe.py --fet
 The tool fetches the top 1000 by descending USD market cap and validates count,
 unique CMC IDs, ranks and caps before atomically saving `cmc-top1000.json` beside
 `ALERT_STATE_PATH`. It keeps identity metadata for later reviewed exchange mapping.
+Selection covers CMC ranks 1..1000 exactly. Original CMC ranks are retained;
+the stored list is sorted locally by numeric USD market cap, which may differ
+from CMC rank order. Sorting never drops duplicate IDs or missing ranks silently.
 Repeated calls reuse the snapshot, including after restarts, with no API request.
 An invalid existing file fails closed; no automatic refresh or live-universe switch
 is enabled. Matching and any periodic refresh remain separate implementation steps.

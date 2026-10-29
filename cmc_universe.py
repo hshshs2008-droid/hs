@@ -23,34 +23,49 @@ class NoRedirect(HTTPRedirectHandler):
         raise CmcCheckError('REDIRECT_REJECTED')
 
 
-def validate(snapshot):
+def validate(snapshot, *, require_order=True):
     if not isinstance(snapshot, dict) or snapshot.get('version') != 1:
         raise CmcCheckError('SNAPSHOT_VERSION_INVALID')
     coins = snapshot.get('coins')
     if not isinstance(coins, list) or len(coins) != 1000:
         raise CmcCheckError('COIN_COUNT_' + str(len(coins) if isinstance(coins, list) else 'INVALID'))
     ids = set()
+    ranks = set()
     previous = math.inf
     for rank, coin in enumerate(coins, 1):
         if not isinstance(coin, dict) or type(coin.get('id')) is not int or coin['id'] <= 0:
             raise CmcCheckError('IDENTITY_INVALID_AT_' + str(rank))
         if coin['id'] in ids:
             raise CmcCheckError('DUPLICATE_ID_AT_' + str(rank))
-        if type(coin.get('cmc_rank')) is not int or coin['cmc_rank'] != rank:
+        if (type(coin.get('cmc_rank')) is not int or not 1 <= coin['cmc_rank'] <= 1000
+                or coin['cmc_rank'] in ranks):
             actual = coin.get('cmc_rank')
-            raise CmcCheckError('RANK_EXPECTED_' + str(rank) + '_ACTUAL_' +
+            raise CmcCheckError('RANK_INVALID_AT_' + str(rank) + '_ACTUAL_' +
                                 (str(actual) if type(actual) is int else 'INVALID'))
         ids.add(coin['id'])
+        ranks.add(coin['cmc_rank'])
         for field in ('name', 'symbol', 'slug'):
             if not isinstance(coin.get(field), str) or not coin[field].strip():
                 raise CmcCheckError('IDENTITY_METADATA_MISSING_AT_' + str(rank))
         cap = coin.get('market_cap_usd')
         if type(cap) not in (int, float) or not math.isfinite(cap) or cap <= 0:
             raise CmcCheckError('MARKET_CAP_INVALID_AT_' + str(rank))
-        if cap > previous:
+        if require_order and cap > previous:
             raise CmcCheckError('MARKET_CAP_ORDER_INVALID_AT_' + str(rank))
         previous = cap
     return snapshot
+
+
+def normalize(snapshot):
+    """Keep CMC's complete rank-1..1000 membership and original ranks.
+
+    Position in that ranked list need not strictly follow numeric market caps.
+    Validate identities/rank coverage/values before sorting the stored snapshot.
+    """
+    validate(snapshot, require_order=False)
+    snapshot = dict(snapshot, coins=sorted(snapshot['coins'],
+                    key=lambda coin: (-coin['market_cap_usd'], coin['cmc_rank'])))
+    return validate(snapshot)
 
 
 def download(key):
@@ -74,7 +89,8 @@ def download(key):
         usd = coin['quote']['USD']
         coins.append({**{k: coin.get(k) for k in ('id', 'name', 'symbol', 'slug', 'cmc_rank', 'platform', 'tags')},
                       'market_cap_usd': usd.get('market_cap'), 'last_updated': usd.get('last_updated')})
-    return validate({'version': 1, 'source': 'CoinMarketCap', 'sort': 'market_cap_desc',
+    return normalize({'version': 1, 'source': 'CoinMarketCap', 'sort': 'market_cap_desc',
+                     'selection': 'cmc_ranks_1_to_1000',
                      'fetched_at': status.get('timestamp'), 'credit_count': status.get('credit_count'),
                      'coins': coins})
 

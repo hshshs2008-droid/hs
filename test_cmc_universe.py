@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from cmc_universe import CmcCheckError, fetch_once, main, validate
+from cmc_universe import CmcCheckError, fetch_once, main, normalize, validate
 
 
 def sample():
@@ -15,6 +15,36 @@ def sample():
 
 
 class CmcTests(unittest.TestCase):
+    def test_rank201_cap_increase_sorted_without_losing_original_rank_or_coin(self):
+        original = sample()
+        original['coins'][200]['market_cap_usd'] = 1100
+        result = normalize(original)
+        self.assertEqual(result['coins'][0]['id'], 201)
+        self.assertEqual(result['coins'][0]['cmc_rank'], 201)
+        self.assertEqual(original['coins'][0]['id'], 1)
+        self.assertEqual({c['id'] for c in result['coins']}, set(range(1, 1001)))
+        self.assertEqual(validate(result), result)
+
+    def test_normalization_does_not_hide_incomplete_or_duplicate_ranks(self):
+        for bad_rank in (200, 1001, None):
+            original = sample()
+            original['coins'][200]['cmc_rank'] = bad_rank
+            with self.assertRaises(CmcCheckError):
+                normalize(original)
+
+    @patch('cmc_universe.download')
+    def test_normalized_snapshot_can_be_reused_without_refetch(self, download):
+        original = sample()
+        original['coins'][200]['market_cap_usd'] = 1100
+        download.return_value = normalize(original)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'coins.json'
+            first, _ = fetch_once(path, 'test')
+            again, cached = fetch_once(path, '')
+            self.assertTrue(cached)
+            self.assertEqual(again, first)
+            self.assertEqual(download.call_count, 1)
+
     def test_cli_exposes_only_controlled_diagnostic_codes(self):
         for error, expected in ((CmcCheckError('CMC_API_KEY_MISSING'), 'reason=CMC_API_KEY_MISSING'),
                                 (ValueError('secret_key_value'), 'type=ValueError')):
