@@ -46,6 +46,17 @@
 - https://github.com/railwayapp/docs/blob/c8e38c2db90fb8d13008f3ca849fc78553dedeae/content/docs/deployments/serverless.md
 # Gate fixed universe
 
+## CMC shortlist preparation (no live scanning changes)
+
+Set `CMC_API_KEY` in Railway, then explicitly run `python3 cmc_universe.py --fetch`.
+The tool fetches the top 1000 by descending USD market cap and validates count,
+unique CMC IDs, ranks and caps before atomically saving `cmc-top1000.json` beside
+`ALERT_STATE_PATH`. It keeps identity metadata for later reviewed exchange mapping.
+Repeated calls reuse the snapshot, including after restarts, with no API request.
+An invalid existing file fails closed; no automatic refresh or live-universe switch
+is enabled. Matching and any periodic refresh remain separate implementation steps.
+The command prints safe success/status information, never the API key or remote body.
+
 When Gate is enabled, its first discovery ranks eligible non-Binance USDT
 pairs by median quote volume across seven completed UTC calendar days.
 Only positive medians with all seven daily candles qualify; the highest
