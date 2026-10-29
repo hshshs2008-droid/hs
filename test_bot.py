@@ -20,6 +20,19 @@ class OffsetStore:
 
 class BotTests(unittest.TestCase):
     @patch("bot.api")
+    def test_gate_display_keeps_native_pair_for_price_and_ledger(self, api):
+        client = Mock()
+        client.latest_price.return_value = "0.0002823"
+        store = Mock()
+        api.return_value = {'message_id': 1, 'date': 1, 'chat': {'id': 42}}
+        bot.send_alert_message("test-token", client, 42, "📈 BNKR_USDT\nGate.io Spot",
+                               store=store, signal_close_time=123)
+        client.latest_price.assert_called_once_with("BNKR_USDT")
+        self.assertEqual(store.prepare_delivery.call_args.args[1], "BNKR_USDT")
+        self.assertEqual(api.call_args.args[2]['text'],
+                         "📈 BNKRUSDT | 💵 0.0002823 USDT\nGate.io Spot")
+
+    @patch("bot.api")
     def test_delivery_retry_fetches_fresh_price_after_signal_creation(self, api):
         client = Mock()
         client.latest_price.side_effect = ["67500.12", "67601.34"]

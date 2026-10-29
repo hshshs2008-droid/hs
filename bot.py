@@ -122,7 +122,8 @@ def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_
             except MarketError as error:
                 logger.warning("Latest price unavailable; HTTP status=%s", error.status)
                 quote = "💵 السعر غير متاح"
-            text = f"{heading} | {quote}{separator}{body}"
+            display_symbol = symbol[:-5] + "USDT" if symbol.endswith("_USDT") else symbol
+            text = f"📈 {display_symbol} | {quote}{separator}{body}"
     if store is not None and (symbol is None or signal_close_time is None or parse_mode is not None):
         raise ValueError("Durable live delivery requires explicit signal identity.")
     payload = {"chat_id": chat_id, "text": text}
