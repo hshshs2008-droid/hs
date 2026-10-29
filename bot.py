@@ -379,7 +379,8 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
             status_text = labels.get(state.get("state"), "المراقبة قيد التهيئة.")
             if not worker_alive:
                 status_text = "توقفت المراقبة؛ يلزم إعادة تشغيل البوت وفحصه."
-            reply = ("تنبيهاتك: " + ("مفعّلة" if active else "متوقفة") + "\n" + status_text)
+            reply = ("تنبيهاتك: " + ("مفعّلة" if active else "متوقفة")
+                     + "\n\nBinance Spot — القائمة المعتمدة:\n" + status_text)
             if state.get("symbols_checked") is not None:
                 reply += f"\nالأزواج المفحوصة في آخر دورة: {state['symbols_checked']}"
             last_scan = state.get("last_scan_ms")
