@@ -116,3 +116,25 @@ python3 -u /workspace/hs/run_bot.py
 في الكود ولا يعتمد على توفر الشموع أو حالة السوق. لا تُرسل تنبيهاتها
 المعلّقة، وتبقى سجلات الإشارات السابقة وإيصالاتها متاحة للتقارير.
 لا يشمل هذا الاستبعاد EUR أو CRCLB أو WENB.
+
+### Approved CoinMarketCap universe (2026-10-29)
+
+Production loads `approved_universe.json`: 674 reviewed CMC identities, routed
+exclusively to 322 Binance pairs and 352 Gate.io pairs. The 326 owner-excluded
+CMC identities remain recorded in the manifest. The 39 accepted identities from
+the special Gate-only review stay on Gate even if Binance lists the same ticker.
+Selection uses explicit exchange pair mappings, not runtime ticker matching.
+
+The manifest is bundled in the image and validated before workers start. Missing
+or inconsistent data stops startup; it never falls back to scanning all markets.
+Each exchange intersects its list with currently tradable Spot USDT markets.
+There are no automatic replacements, no CMC API calls during scanning, and no
+scheduled shortlist refresh. The former Gate top-800 selection is bypassed.
+Actual status counts may be smaller if an approved pair is no longer tradable.
+
+At first activation of a changed manifest, each database persists a new alert
+activation boundary and clears only the cached `/signals` reports. This prevents
+old queued alerts from replaying when sources change. Delivery receipts, signal
+history, subscriber approvals, and Excel report records are retained. The same
+manifest does not reset this boundary on subsequent restarts. Indicator rules
+and the 48-hour historical report window are unchanged.

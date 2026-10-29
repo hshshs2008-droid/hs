@@ -328,7 +328,7 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
         reply = WELCOME
         if gate_store is not None:
             reply = reply.replace("أراقب أزواج USDT في Binance Spot على فريم 4h.",
-                                  "أراقب Binance Spot وأزواج Gate.io Spot غير الموجودة عليه، مقابل USDT وعلى فريم 4h.")
+                                  "أراقب القائمة المعتمدة من CoinMarketCap على Binance Spot وGate.io Spot، مقابل USDT وعلى فريم 4h.")
         if store is not None and store.access_required() is True and store.is_admin(chat["id"]):
             reply += "\n\nإدارة الاشتراكات:\n/requests — طلبات الانضمام\n/members — المشتركون وسحب الصلاحية\n/approve مع رقم الحساب — الموافقة على طلب سبق رفضه\n/report — تقرير Excel للإشارات والأسعار"
         api(token, "sendMessage", {"chat_id": message["chat"]["id"], "text": reply})
@@ -404,7 +404,7 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
                 if not gate_worker_alive:
                     gate_state = "عامل المراقبة متوقف؛ يلزم فحص التشغيل"
                 checked, total = secondary.get("symbols_checked", 0), secondary.get("symbols_total", "—")
-                reply += f"\n\nGate.io Spot — غير الموجودة على Binance:\n{gate_state}\nالأزواج: {checked}/{total}"
+                reply += f"\n\nGate.io Spot — القائمة المعتمدة:\n{gate_state}\nالأزواج: {checked}/{total}"
                 stamp = secondary.get("last_scan_ms")
                 if type(stamp) in (int, float):
                     from alerts import DISPLAY_TZ
@@ -467,7 +467,10 @@ def main():
             logger.error("GATE_SPOT_ENABLED must be true or false.")
             return 1
         gate_enabled = flag in ("true", "1", "on", "yes")
+        from approved_universe import load_universe, configure_store
+        universe, universe_version = load_universe()
         client = BinanceClient()
+        client.selected_symbols = universe["Binance"]
         if "--check" in sys.argv:
             try:
                 server_time = client.server_time()
@@ -488,6 +491,7 @@ def main():
             return 0
         state_path = os.environ.get("ALERT_STATE_PATH") or os.path.join(os.path.dirname(__file__), ".state", "alerts.sqlite3")
         store = AlertStore(state_path)
+        configure_store(store, universe["Binance"], universe_version)
         raw_admin = os.environ.get("TELEGRAM_ADMIN_ID", "").strip()
         if raw_admin and (not raw_admin.isascii() or not raw_admin.isdecimal() or len(raw_admin) > 16):
             raise ValueError("TELEGRAM_ADMIN_ID must be a positive Telegram user ID.")
@@ -501,7 +505,9 @@ def main():
             from gate_market import GateClient
             from gate_runtime import GateStore
             gate_store = GateStore(gate_path, store)
+            configure_store(gate_store, universe["Gate.io"], universe_version)
             gate_client = GateClient(client, base_url=os.environ.get("API_GATE_BASE") or "https://api.gateio.ws")
+            gate_client.selected_symbols = universe["Gate.io"]
             if gate_enabled and gate_path != ":memory:":
                 gate_client.selection_path = os.path.join(os.path.dirname(gate_path), "gate-selection.sqlite3")
             if gate_enabled:

@@ -458,10 +458,12 @@ class AlertStore:
         return [(chat_id, symbol, close_time,
                  _refresh_alert_times(message, close_time, rsi_time, stoch_time))
                 for chat_id, symbol, close_time, message, rsi_time, stoch_time in rows
-                if self.can_access(chat_id) and not is_excluded_pair(symbol)]
+                if self.can_access(chat_id) and not is_excluded_pair(symbol)
+                and (getattr(self, "allowed_symbols", None) is None or symbol in self.allowed_symbols)]
 
     def is_pending(self, chat_id, symbol, close_time):
-        if is_excluded_pair(symbol):
+        if (is_excluded_pair(symbol) or (getattr(self, "allowed_symbols", None) is not None
+                                         and symbol not in self.allowed_symbols)):
             return False
         with self._lock:
             if not self.can_access(chat_id):

@@ -190,7 +190,8 @@ class ReportBotTests(unittest.TestCase):
                 bot.send_document('test-token', 100, b'PK', 'bad\r\nfilename.xlsx')
         urlopen.assert_not_called()
 
-    def test_production_startup_wires_ledger_sender_and_private_report_worker(self):
+    @patch("approved_universe.configure_store")
+    def test_production_startup_wires_ledger_sender_and_private_report_worker(self, configure):
         store = Mock()
         store.admin_id = 100
         store.is_admin.return_value = True

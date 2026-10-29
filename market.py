@@ -213,7 +213,8 @@ class BinanceClient:
                 if is_excluded_pair(symbol):
                     continue
                 symbols.add(symbol)
-        return sorted(symbols)
+        return sorted(symbols if getattr(self, "selected_symbols", None) is None
+                      else symbols & self.selected_symbols)
 
     def candles(self, symbol, server_time_ms, limit=500):
         """Return contiguous closed UTC 4h candles; short histories stay short."""

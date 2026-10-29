@@ -235,12 +235,16 @@ class GateClient:
     def spot_symbols(self):
         # Refresh the exclusion set at every universe refresh. Failure must not
         # accidentally turn this source into all Gate.io pairs.
-        binance = self.binance_client.spot_symbols()
-        if (not isinstance(binance, (list, tuple)) or not binance
-                or not all(isinstance(symbol, str) and symbol.endswith('USDT')
-                           and symbol.isalnum() for symbol in binance)):
-            raise MarketError('The Binance exclusion universe is unavailable for Gate.io.')
-        excluded = {symbol[:-4].upper() for symbol in binance} | EXCLUDED_BASE_ASSETS
+        approved = getattr(self, 'selected_symbols', None)
+        if approved is None:
+            binance = self.binance_client.spot_symbols()
+            if (not isinstance(binance, (list, tuple)) or not binance
+                    or not all(isinstance(symbol, str) and symbol.endswith('USDT')
+                               and symbol.isalnum() for symbol in binance)):
+                raise MarketError('The Binance exclusion universe is unavailable for Gate.io.')
+            excluded = {symbol[:-4].upper() for symbol in binance} | EXCLUDED_BASE_ASSETS
+        else:
+            excluded = EXCLUDED_BASE_ASSETS
         result = self._get('/spot/currency_pairs')
         if not isinstance(result, list) or not result:
             raise MarketError('Gate.io returned invalid or empty exchange information.')
@@ -257,7 +261,7 @@ class GateClient:
                 raise MarketError('Gate.io returned an invalid spot pair identifier.')
             if base.upper() not in excluded:
                 selected.add(symbol)
-        selected = self._select_fixed(selected)
+        selected = self._select_fixed(selected) if approved is None else selected & approved
         with self._universe_lock:
             self._eligible_symbols = frozenset(selected)
         return sorted(selected)

@@ -84,7 +84,7 @@ def format_history(result):
     header_text = (
         "إشارات تاريخية، وليست تنبيهات جديدة\n"
         f"{result.exchange_name} • "
-        + ("جميع أزواج USDT" if result.exchange_name == "Binance Spot" else "أزواج USDT غير الموجودة على Binance")
+        + "أزواج USDT المختارة"
         + " • 4h\n"
         f"الفترة: {_time_label(cutoff)} إلى {_time_label(result.as_of_ms)}\n"
         f"آخر إغلاق معتمد: {_time_label(result.target_close_time + 1)}\n"

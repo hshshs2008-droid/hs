@@ -1,0 +1,4378 @@
+{
+  "version": 1,
+  "selection": "CMC ranks 1-1000 snapshot 2026-10-29; owner exclusions and Gate-only overrides",
+  "coins": [
+    {
+      "cmc_id": 1,
+      "name": "Bitcoin",
+      "source": "Binance",
+      "pair": "BTCUSDT"
+    },
+    {
+      "cmc_id": 1027,
+      "name": "Ethereum",
+      "source": "Binance",
+      "pair": "ETHUSDT"
+    },
+    {
+      "cmc_id": 1839,
+      "name": "BNB",
+      "source": "Binance",
+      "pair": "BNBUSDT"
+    },
+    {
+      "cmc_id": 52,
+      "name": "XRP",
+      "source": "Binance",
+      "pair": "XRPUSDT"
+    },
+    {
+      "cmc_id": 3408,
+      "name": "USDC",
+      "source": "Binance",
+      "pair": "USDCUSDT"
+    },
+    {
+      "cmc_id": 5426,
+      "name": "Solana",
+      "source": "Binance",
+      "pair": "SOLUSDT"
+    },
+    {
+      "cmc_id": 1958,
+      "name": "TRON",
+      "source": "Binance",
+      "pair": "TRXUSDT"
+    },
+    {
+      "cmc_id": 1437,
+      "name": "Zcash",
+      "source": "Binance",
+      "pair": "ZECUSDT"
+    },
+    {
+      "cmc_id": 32196,
+      "name": "Hyperliquid",
+      "source": "Binance",
+      "pair": "HYPEUSDT"
+    },
+    {
+      "cmc_id": 74,
+      "name": "Dogecoin",
+      "source": "Binance",
+      "pair": "DOGEUSDT"
+    },
+    {
+      "cmc_id": 3957,
+      "name": "UNUS SED LEO",
+      "source": "Gate.io",
+      "pair": "LEO_USDT"
+    },
+    {
+      "cmc_id": 1975,
+      "name": "Chainlink",
+      "source": "Binance",
+      "pair": "LINKUSDT"
+    },
+    {
+      "cmc_id": 2010,
+      "name": "Cardano",
+      "source": "Binance",
+      "pair": "ADAUSDT"
+    },
+    {
+      "cmc_id": 512,
+      "name": "Stellar",
+      "source": "Gate.io",
+      "pair": "XLM_USDT"
+    },
+    {
+      "cmc_id": 6535,
+      "name": "NEAR Protocol",
+      "source": "Binance",
+      "pair": "NEARUSDT"
+    },
+    {
+      "cmc_id": 1831,
+      "name": "Bitcoin Cash",
+      "source": "Binance",
+      "pair": "BCHUSDT"
+    },
+    {
+      "cmc_id": 39158,
+      "name": "Bitway",
+      "source": "Gate.io",
+      "pair": "BTW_USDT"
+    },
+    {
+      "cmc_id": 38341,
+      "name": "Rain",
+      "source": "Gate.io",
+      "pair": "RAIN_USDT"
+    },
+    {
+      "cmc_id": 29470,
+      "name": "Ethena USDe",
+      "source": "Gate.io",
+      "pair": "USDE_USDT"
+    },
+    {
+      "cmc_id": 2,
+      "name": "Litecoin",
+      "source": "Binance",
+      "pair": "LTCUSDT"
+    },
+    {
+      "cmc_id": 7083,
+      "name": "Uniswap",
+      "source": "Binance",
+      "pair": "UNIUSDT"
+    },
+    {
+      "cmc_id": 42538,
+      "name": "RWUSD",
+      "source": "Binance",
+      "pair": "RWUSDUSDT"
+    },
+    {
+      "cmc_id": 5805,
+      "name": "Avalanche",
+      "source": "Binance",
+      "pair": "AVAXUSDT"
+    },
+    {
+      "cmc_id": 36148,
+      "name": "World Liberty Financial USD",
+      "source": "Binance",
+      "pair": "USD1USDT"
+    },
+    {
+      "cmc_id": 20947,
+      "name": "Sui",
+      "source": "Binance",
+      "pair": "SUIUSDT"
+    },
+    {
+      "cmc_id": 11419,
+      "name": "Gram (prev. Toncoin)",
+      "source": "Gate.io",
+      "pair": "GRAM_USDT"
+    },
+    {
+      "cmc_id": 4642,
+      "name": "Hedera",
+      "source": "Gate.io",
+      "pair": "HBAR_USDT"
+    },
+    {
+      "cmc_id": 33793,
+      "name": "Global Dollar",
+      "source": "Gate.io",
+      "pair": "USDG_USDT"
+    },
+    {
+      "cmc_id": 27772,
+      "name": "PayPal USD",
+      "source": "Gate.io",
+      "pair": "PYUSD_USDT"
+    },
+    {
+      "cmc_id": 5176,
+      "name": "Tether Gold",
+      "source": "Binance",
+      "pair": "XAUTUSDT"
+    },
+    {
+      "cmc_id": 22974,
+      "name": "Bittensor",
+      "source": "Binance",
+      "pair": "TAOUSDT"
+    },
+    {
+      "cmc_id": 5994,
+      "name": "Shiba Inu",
+      "source": "Binance",
+      "pair": "SHIBUSDT"
+    },
+    {
+      "cmc_id": 3635,
+      "name": "Cronos",
+      "source": "Gate.io",
+      "pair": "CRO_USDT"
+    },
+    {
+      "cmc_id": 30171,
+      "name": "Ethena",
+      "source": "Binance",
+      "pair": "ENAUSDT"
+    },
+    {
+      "cmc_id": 34387,
+      "name": "Ripple USD",
+      "source": "Binance",
+      "pair": "RLUSDUSDT"
+    },
+    {
+      "cmc_id": 35491,
+      "name": "MemeCore",
+      "source": "Gate.io",
+      "pair": "M_USDT"
+    },
+    {
+      "cmc_id": 29256,
+      "name": "Ondo US Dollar Yield",
+      "source": "Gate.io",
+      "pair": "USDY_USDT"
+    },
+    {
+      "cmc_id": 3897,
+      "name": "OKB",
+      "source": "Gate.io",
+      "pair": "OKB_USDT"
+    },
+    {
+      "cmc_id": 3155,
+      "name": "Quant",
+      "source": "Binance",
+      "pair": "QNTUSDT"
+    },
+    {
+      "cmc_id": 24478,
+      "name": "Pepe",
+      "source": "Binance",
+      "pair": "PEPEUSDT"
+    },
+    {
+      "cmc_id": 7278,
+      "name": "Aave",
+      "source": "Binance",
+      "pair": "AAVEUSDT"
+    },
+    {
+      "cmc_id": 21159,
+      "name": "Ondo",
+      "source": "Binance",
+      "pair": "ONDOUSDT"
+    },
+    {
+      "cmc_id": 36507,
+      "name": "Pump.fun",
+      "source": "Binance",
+      "pair": "PUMPUSDT"
+    },
+    {
+      "cmc_id": 36341,
+      "name": "Aster",
+      "source": "Binance",
+      "pair": "ASTERUSDT"
+    },
+    {
+      "cmc_id": 4705,
+      "name": "PAX Gold",
+      "source": "Binance",
+      "pair": "PAXGUSDT"
+    },
+    {
+      "cmc_id": 6636,
+      "name": "Polkadot",
+      "source": "Binance",
+      "pair": "DOTUSDT"
+    },
+    {
+      "cmc_id": 27075,
+      "name": "Mantle",
+      "source": "Gate.io",
+      "pair": "MNT_USDT"
+    },
+    {
+      "cmc_id": 33251,
+      "name": "World Liberty Financial",
+      "source": "Binance",
+      "pair": "WLFIUSDT"
+    },
+    {
+      "cmc_id": 39120,
+      "name": "United Stables",
+      "source": "Binance",
+      "pair": "UUSDT"
+    },
+    {
+      "cmc_id": 13502,
+      "name": "Worldcoin",
+      "source": "Binance",
+      "pair": "WLDUSDT"
+    },
+    {
+      "cmc_id": 33038,
+      "name": "Sky",
+      "source": "Binance",
+      "pair": "SKYUSDT"
+    },
+    {
+      "cmc_id": 19891,
+      "name": "USDD",
+      "source": "Gate.io",
+      "pair": "USDD_USDT"
+    },
+    {
+      "cmc_id": 29160,
+      "name": "HTX",
+      "source": "Gate.io",
+      "pair": "HTX_USDT"
+    },
+    {
+      "cmc_id": 8916,
+      "name": "Internet Computer",
+      "source": "Binance",
+      "pair": "ICPUSDT"
+    },
+    {
+      "cmc_id": 1321,
+      "name": "Ethereum Classic",
+      "source": "Binance",
+      "pair": "ETCUSDT"
+    },
+    {
+      "cmc_id": 34104,
+      "name": "Morpho",
+      "source": "Gate.io",
+      "pair": "MORPHO_USDT"
+    },
+    {
+      "cmc_id": 35509,
+      "name": "Venice Token",
+      "source": "Gate.io",
+      "pair": "VVV_USDT"
+    },
+    {
+      "cmc_id": 11841,
+      "name": "Arbitrum",
+      "source": "Binance",
+      "pair": "ARBUSDT"
+    },
+    {
+      "cmc_id": 5488,
+      "name": "JUST",
+      "source": "Binance",
+      "pair": "JSTUSDT"
+    },
+    {
+      "cmc_id": 4269,
+      "name": "GateToken",
+      "source": "Gate.io",
+      "pair": "GT_USDT"
+    },
+    {
+      "cmc_id": 20396,
+      "name": "Kaspa",
+      "source": "Gate.io",
+      "pair": "KAS_USDT"
+    },
+    {
+      "cmc_id": 28321,
+      "name": "Polygon (prev. MATIC)",
+      "source": "Gate.io",
+      "pair": "POL_USDT"
+    },
+    {
+      "cmc_id": 4030,
+      "name": "Algorand",
+      "source": "Binance",
+      "pair": "ALGOUSDT"
+    },
+    {
+      "cmc_id": 29210,
+      "name": "Jupiter",
+      "source": "Binance",
+      "pair": "JUPUSDT"
+    },
+    {
+      "cmc_id": 3794,
+      "name": "Cosmos",
+      "source": "Binance",
+      "pair": "ATOMUSDT"
+    },
+    {
+      "cmc_id": 5690,
+      "name": "Render",
+      "source": "Binance",
+      "pair": "RENDERUSDT"
+    },
+    {
+      "cmc_id": 7226,
+      "name": "Injective",
+      "source": "Binance",
+      "pair": "INJUSDT"
+    },
+    {
+      "cmc_id": 2280,
+      "name": "Filecoin",
+      "source": "Binance",
+      "pair": "FILUSDT"
+    },
+    {
+      "cmc_id": 39125,
+      "name": "Lighter",
+      "source": "Gate.io",
+      "pair": "LIT_USDT"
+    },
+    {
+      "cmc_id": 2634,
+      "name": "XDC Network",
+      "source": "Gate.io",
+      "pair": "XDC_USDT"
+    },
+    {
+      "cmc_id": 7186,
+      "name": "PancakeSwap",
+      "source": "Binance",
+      "pair": "CAKEUSDT"
+    },
+    {
+      "cmc_id": 23508,
+      "name": "GHO",
+      "source": "Gate.io",
+      "pair": "GHO_USDT"
+    },
+    {
+      "cmc_id": 26997,
+      "name": "LayerZero",
+      "source": "Binance",
+      "pair": "ZROUSDT"
+    },
+    {
+      "cmc_id": 39064,
+      "name": "Midnight",
+      "source": "Binance",
+      "pair": "NIGHTUSDT"
+    },
+    {
+      "cmc_id": 131,
+      "name": "Dash",
+      "source": "Binance",
+      "pair": "DASHUSDT"
+    },
+    {
+      "cmc_id": 29814,
+      "name": "ether.fi",
+      "source": "Binance",
+      "pair": "ETHFIUSDT"
+    },
+    {
+      "cmc_id": 21794,
+      "name": "Aptos",
+      "source": "Binance",
+      "pair": "APTUSDT"
+    },
+    {
+      "cmc_id": 3987,
+      "name": "Beldex",
+      "source": "Gate.io",
+      "pair": "BDX_USDT"
+    },
+    {
+      "cmc_id": 28177,
+      "name": "Pyth Network",
+      "source": "Binance",
+      "pair": "PYTHUSDT"
+    },
+    {
+      "cmc_id": 4847,
+      "name": "Stacks",
+      "source": "Binance",
+      "pair": "STXUSDT"
+    },
+    {
+      "cmc_id": 38590,
+      "name": "币安人生",
+      "source": "Binance",
+      "pair": "币安人生USDT"
+    },
+    {
+      "cmc_id": 3077,
+      "name": "VeChain",
+      "source": "Binance",
+      "pair": "VETUSDT"
+    },
+    {
+      "cmc_id": 22861,
+      "name": "Celestia",
+      "source": "Binance",
+      "pair": "TIAUSDT"
+    },
+    {
+      "cmc_id": 6538,
+      "name": "Curve DAO Token",
+      "source": "Gate.io",
+      "pair": "CRV_USDT"
+    },
+    {
+      "cmc_id": 2694,
+      "name": "Nexo",
+      "source": "Binance",
+      "pair": "NEXOUSDT"
+    },
+    {
+      "cmc_id": 38892,
+      "name": "Stable",
+      "source": "Gate.io",
+      "pair": "STABLE_USDT"
+    },
+    {
+      "cmc_id": 2563,
+      "name": "TrueUSD",
+      "source": "Binance",
+      "pair": "TUSDUSDT"
+    },
+    {
+      "cmc_id": 34466,
+      "name": "Pudgy Penguins",
+      "source": "Binance",
+      "pair": "PENGUUSDT"
+    },
+    {
+      "cmc_id": 35336,
+      "name": "OFFICIAL TRUMP",
+      "source": "Binance",
+      "pair": "TRUMPUSDT"
+    },
+    {
+      "cmc_id": 38127,
+      "name": "AKEDO",
+      "source": "Gate.io",
+      "pair": "AKE_USDT"
+    },
+    {
+      "cmc_id": 8526,
+      "name": "Raydium",
+      "source": "Binance",
+      "pair": "RAYUSDT"
+    },
+    {
+      "cmc_id": 3773,
+      "name": "Artificial Superintelligence Alliance",
+      "source": "Binance",
+      "pair": "FETUSDT"
+    },
+    {
+      "cmc_id": 29420,
+      "name": "Virtuals Protocol",
+      "source": "Binance",
+      "pair": "VIRTUALUSDT"
+    },
+    {
+      "cmc_id": 23149,
+      "name": "Sei",
+      "source": "Binance",
+      "pair": "SEIUSDT"
+    },
+    {
+      "cmc_id": 28081,
+      "name": "SPX6900",
+      "source": "Gate.io",
+      "pair": "SPX_USDT"
+    },
+    {
+      "cmc_id": 36645,
+      "name": "Plasma",
+      "source": "Binance",
+      "pair": "XPLUSDT"
+    },
+    {
+      "cmc_id": 3602,
+      "name": "Bitcoin SV",
+      "source": "Gate.io",
+      "pair": "BSV_USDT"
+    },
+    {
+      "cmc_id": 22691,
+      "name": "Starknet",
+      "source": "Gate.io",
+      "pair": "STRK_USDT"
+    },
+    {
+      "cmc_id": 16086,
+      "name": "BitTorrent [New]",
+      "source": "Gate.io",
+      "pair": "BTT_USDT"
+    },
+    {
+      "cmc_id": 9481,
+      "name": "Pendle",
+      "source": "Binance",
+      "pair": "PENDLEUSDT"
+    },
+    {
+      "cmc_id": 38482,
+      "name": "Falcon Finance",
+      "source": "Binance",
+      "pair": "FFUSDT"
+    },
+    {
+      "cmc_id": 10529,
+      "name": "Sun [New]",
+      "source": "Gate.io",
+      "pair": "SUN_USDT"
+    },
+    {
+      "cmc_id": 38849,
+      "name": "Pieverse",
+      "source": "Gate.io",
+      "pair": "PIEVERSE_USDT"
+    },
+    {
+      "cmc_id": 8000,
+      "name": "Lido DAO",
+      "source": "Binance",
+      "pair": "LDOUSDT"
+    },
+    {
+      "cmc_id": 2011,
+      "name": "Tezos",
+      "source": "Binance",
+      "pair": "XTZUSDT"
+    },
+    {
+      "cmc_id": 26081,
+      "name": "First Digital USD",
+      "source": "Binance",
+      "pair": "FDUSDUSDT"
+    },
+    {
+      "cmc_id": 27048,
+      "name": "Ape and Pepe",
+      "source": "Gate.io",
+      "pair": "APEPE_USDT"
+    },
+    {
+      "cmc_id": 1659,
+      "name": "Gnosis",
+      "source": "Binance",
+      "pair": "GNOUSDT"
+    },
+    {
+      "cmc_id": 38828,
+      "name": "Kite",
+      "source": "Binance",
+      "pair": "KITEUSDT"
+    },
+    {
+      "cmc_id": 38339,
+      "name": "Unibase",
+      "source": "Gate.io",
+      "pair": "UB_USDT"
+    },
+    {
+      "cmc_id": 10603,
+      "name": "Immutable",
+      "source": "Gate.io",
+      "pair": "IMX_USDT"
+    },
+    {
+      "cmc_id": 23095,
+      "name": "Bonk",
+      "source": "Binance",
+      "pair": "BONKUSDT"
+    },
+    {
+      "cmc_id": 35014,
+      "name": "Derive",
+      "source": "Gate.io",
+      "pair": "DRV_USDT"
+    },
+    {
+      "cmc_id": 1168,
+      "name": "Decred",
+      "source": "Binance",
+      "pair": "DCRUSDT"
+    },
+    {
+      "cmc_id": 11840,
+      "name": "Optimism",
+      "source": "Binance",
+      "pair": "OPUSDT"
+    },
+    {
+      "cmc_id": 7334,
+      "name": "Conflux",
+      "source": "Gate.io",
+      "pair": "CFX_USDT"
+    },
+    {
+      "cmc_id": 4172,
+      "name": "Terra Classic",
+      "source": "Binance",
+      "pair": "LUNCUSDT"
+    },
+    {
+      "cmc_id": 30495,
+      "name": "Monad",
+      "source": "Gate.io",
+      "pair": "MON_USDT"
+    },
+    {
+      "cmc_id": 6719,
+      "name": "The Graph",
+      "source": "Binance",
+      "pair": "GRTUSDT"
+    },
+    {
+      "cmc_id": 9816,
+      "name": "AINFT",
+      "source": "Gate.io",
+      "pair": "NFT_USDT"
+    },
+    {
+      "cmc_id": 5632,
+      "name": "Arweave",
+      "source": "Binance",
+      "pair": "ARUSDT"
+    },
+    {
+      "cmc_id": 10804,
+      "name": "FLOKI",
+      "source": "Binance",
+      "pair": "FLOKIUSDT"
+    },
+    {
+      "cmc_id": 13855,
+      "name": "Ethereum Name Service",
+      "source": "Binance",
+      "pair": "ENSUSDT"
+    },
+    {
+      "cmc_id": 9903,
+      "name": "Convex Finance",
+      "source": "Binance",
+      "pair": "CVXUSDT"
+    },
+    {
+      "cmc_id": 30986,
+      "name": "Kamino",
+      "source": "Gate.io",
+      "pair": "KMNO_USDT"
+    },
+    {
+      "cmc_id": 28541,
+      "name": "Jito",
+      "source": "Binance",
+      "pair": "JTOUSDT"
+    },
+    {
+      "cmc_id": 32880,
+      "name": "Kaia",
+      "source": "Binance",
+      "pair": "KAIAUSDT"
+    },
+    {
+      "cmc_id": 5692,
+      "name": "Compound",
+      "source": "Binance",
+      "pair": "COMPUSDT"
+    },
+    {
+      "cmc_id": 30636,
+      "name": "Zebec Network",
+      "source": "Gate.io",
+      "pair": "ZBCN_USDT"
+    },
+    {
+      "cmc_id": 1697,
+      "name": "Basic Attention Token",
+      "source": "Binance",
+      "pair": "BATUSDT"
+    },
+    {
+      "cmc_id": 38236,
+      "name": "Quack AI",
+      "source": "Gate.io",
+      "pair": "Q_USDT"
+    },
+    {
+      "cmc_id": 4157,
+      "name": "THORChain",
+      "source": "Binance",
+      "pair": "RUNEUSDT"
+    },
+    {
+      "cmc_id": 36542,
+      "name": "SOON",
+      "source": "Gate.io",
+      "pair": "SOON_USDT"
+    },
+    {
+      "cmc_id": 7431,
+      "name": "Akash Network",
+      "source": "Gate.io",
+      "pair": "AKT_USDT"
+    },
+    {
+      "cmc_id": 30494,
+      "name": "EigenCloud",
+      "source": "Gate.io",
+      "pair": "EIGEN_USDT"
+    },
+    {
+      "cmc_id": 39332,
+      "name": "Zama",
+      "source": "Binance",
+      "pair": "ZAMAUSDT"
+    },
+    {
+      "cmc_id": 33824,
+      "name": "Maple Finance",
+      "source": "Binance",
+      "pair": "SYRUPUSDT"
+    },
+    {
+      "cmc_id": 40938,
+      "name": "Pons",
+      "source": "Gate.io",
+      "pair": "PONS_USDT"
+    },
+    {
+      "cmc_id": 5964,
+      "name": "Trust Wallet Token",
+      "source": "Binance",
+      "pair": "TWTUSDT"
+    },
+    {
+      "cmc_id": 8425,
+      "name": "JasmyCoin",
+      "source": "Binance",
+      "pair": "JASMYUSDT"
+    },
+    {
+      "cmc_id": 38386,
+      "name": "USAT",
+      "source": "Gate.io",
+      "pair": "USAT_USDT"
+    },
+    {
+      "cmc_id": 2467,
+      "name": "OriginTrail",
+      "source": "Gate.io",
+      "pair": "TRAC_USDT"
+    },
+    {
+      "cmc_id": 28752,
+      "name": "dogwifhat",
+      "source": "Binance",
+      "pair": "WIFUSDT"
+    },
+    {
+      "cmc_id": 10508,
+      "name": "Fluid",
+      "source": "Gate.io",
+      "pair": "FLUID_USDT"
+    },
+    {
+      "cmc_id": 28298,
+      "name": "Beam",
+      "source": "Gate.io",
+      "pair": "BEAMX_USDT"
+    },
+    {
+      "cmc_id": 38353,
+      "name": "Meteora",
+      "source": "Binance",
+      "pair": "METUSDT"
+    },
+    {
+      "cmc_id": 18679,
+      "name": "Onyxcoin",
+      "source": "Gate.io",
+      "pair": "XCN_USDT"
+    },
+    {
+      "cmc_id": 6783,
+      "name": "Axie Infinity",
+      "source": "Binance",
+      "pair": "AXSUSDT"
+    },
+    {
+      "cmc_id": 32956,
+      "name": "Grass",
+      "source": "Gate.io",
+      "pair": "GRASS_USDT"
+    },
+    {
+      "cmc_id": 38868,
+      "name": "Sentient",
+      "source": "Binance",
+      "pair": "SENTUSDT"
+    },
+    {
+      "cmc_id": 10180,
+      "name": "GoМining",
+      "source": "Gate.io",
+      "pair": "GOMINING_USDT"
+    },
+    {
+      "cmc_id": 1966,
+      "name": "Decentraland",
+      "source": "Binance",
+      "pair": "MANAUSDT"
+    },
+    {
+      "cmc_id": 36828,
+      "name": "Useless Coin",
+      "source": "Gate.io",
+      "pair": "USELESS_USDT"
+    },
+    {
+      "cmc_id": 38330,
+      "name": "GUSD",
+      "source": "Gate.io",
+      "pair": "GUSD_USDT"
+    },
+    {
+      "cmc_id": 36462,
+      "name": "Vaulta",
+      "source": "Binance",
+      "pair": "AUSDT"
+    },
+    {
+      "cmc_id": 36063,
+      "name": "Bedrock",
+      "source": "Gate.io",
+      "pair": "BR_USDT"
+    },
+    {
+      "cmc_id": 1376,
+      "name": "Neo",
+      "source": "Binance",
+      "pair": "NEOUSDT"
+    },
+    {
+      "cmc_id": 30605,
+      "name": "Ailey",
+      "source": "Gate.io",
+      "pair": "ALE_USDT"
+    },
+    {
+      "cmc_id": 37322,
+      "name": "Vision",
+      "source": "Gate.io",
+      "pair": "VSN_USDT"
+    },
+    {
+      "cmc_id": 6210,
+      "name": "The Sandbox",
+      "source": "Binance",
+      "pair": "SANDUSDT"
+    },
+    {
+      "cmc_id": 4066,
+      "name": "Chiliz",
+      "source": "Binance",
+      "pair": "CHZUSDT"
+    },
+    {
+      "cmc_id": 36532,
+      "name": "BUILDon",
+      "source": "Gate.io",
+      "pair": "B_USDT"
+    },
+    {
+      "cmc_id": 7326,
+      "name": "DeXe",
+      "source": "Binance",
+      "pair": "DEXEUSDT"
+    },
+    {
+      "cmc_id": 10791,
+      "name": "eCash",
+      "source": "Binance",
+      "pair": "XECUSDT"
+    },
+    {
+      "cmc_id": 24091,
+      "name": "ZKsync",
+      "source": "Binance",
+      "pair": "ZKUSDT"
+    },
+    {
+      "cmc_id": 33597,
+      "name": "Fartcoin",
+      "source": "Gate.io",
+      "pair": "FARTCOIN_USDT"
+    },
+    {
+      "cmc_id": 32684,
+      "name": "Sonic",
+      "source": "Binance",
+      "pair": "SUSDT"
+    },
+    {
+      "cmc_id": 27960,
+      "name": "Non-Playable Coin",
+      "source": "Gate.io",
+      "pair": "NPC_USDT"
+    },
+    {
+      "cmc_id": 37003,
+      "name": "MicroStrategy tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "MSTRX_USDT"
+    },
+    {
+      "cmc_id": 8104,
+      "name": "1inch",
+      "source": "Binance",
+      "pair": "1INCHUSDT"
+    },
+    {
+      "cmc_id": 9104,
+      "name": "AIOZ Network",
+      "source": "Gate.io",
+      "pair": "AIOZ_USDT"
+    },
+    {
+      "cmc_id": 18876,
+      "name": "ApeCoin",
+      "source": "Binance",
+      "pair": "APEUSDT"
+    },
+    {
+      "cmc_id": 39720,
+      "name": "edgeX",
+      "source": "Gate.io",
+      "pair": "EDGEX_USDT"
+    },
+    {
+      "cmc_id": 38283,
+      "name": "Collector Crypt",
+      "source": "Gate.io",
+      "pair": "CARDS_USDT"
+    },
+    {
+      "cmc_id": 41912,
+      "name": "DGrid AI",
+      "source": "Gate.io",
+      "pair": "DGAI_USDT"
+    },
+    {
+      "cmc_id": 20969,
+      "name": "GEODNET",
+      "source": "Gate.io",
+      "pair": "GEOD_USDT"
+    },
+    {
+      "cmc_id": 36922,
+      "name": "Humanity",
+      "source": "Gate.io",
+      "pair": "H_USDT"
+    },
+    {
+      "cmc_id": 30083,
+      "name": "Aethir",
+      "source": "Gate.io",
+      "pair": "ATH_USDT"
+    },
+    {
+      "cmc_id": 8290,
+      "name": "SuperVerse",
+      "source": "Binance",
+      "pair": "SUPERUSDT"
+    },
+    {
+      "cmc_id": 8119,
+      "name": "SafePal",
+      "source": "Binance",
+      "pair": "SFPUSDT"
+    },
+    {
+      "cmc_id": 42022,
+      "name": "STONK (stonkfun.xyz)",
+      "source": "Gate.io",
+      "pair": "STONK_USDT"
+    },
+    {
+      "cmc_id": 39841,
+      "name": "Genius Terminal",
+      "source": "Binance",
+      "pair": "GENIUSUSDT"
+    },
+    {
+      "cmc_id": 38337,
+      "name": "0G",
+      "source": "Binance",
+      "pair": "0GUSDT"
+    },
+    {
+      "cmc_id": 37005,
+      "name": "Circle tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "CRCLX_USDT"
+    },
+    {
+      "cmc_id": 1455,
+      "name": "Golem",
+      "source": "Binance",
+      "pair": "GLMUSDT"
+    },
+    {
+      "cmc_id": 1698,
+      "name": "Horizen",
+      "source": "Binance",
+      "pair": "ZENUSDT"
+    },
+    {
+      "cmc_id": 6892,
+      "name": "MultiversX",
+      "source": "Binance",
+      "pair": "EGLDUSDT"
+    },
+    {
+      "cmc_id": 35364,
+      "name": "Plume",
+      "source": "Binance",
+      "pair": "PLUMEUSDT"
+    },
+    {
+      "cmc_id": 35818,
+      "name": "SoSoValue",
+      "source": "Gate.io",
+      "pair": "SOSO_USDT"
+    },
+    {
+      "cmc_id": 4120,
+      "name": "Prom",
+      "source": "Gate.io",
+      "pair": "PROM_USDT"
+    },
+    {
+      "cmc_id": 36576,
+      "name": "Huma Finance",
+      "source": "Binance",
+      "pair": "HUMAUSDT"
+    },
+    {
+      "cmc_id": 40809,
+      "name": "Cash Cat",
+      "source": "Gate.io",
+      "pair": "CASHCAT_USDT"
+    },
+    {
+      "cmc_id": 11165,
+      "name": "Orca",
+      "source": "Binance",
+      "pair": "ORCAUSDT"
+    },
+    {
+      "cmc_id": 3964,
+      "name": "Reserve Rights",
+      "source": "Binance",
+      "pair": "RSRUSDT"
+    },
+    {
+      "cmc_id": 38515,
+      "name": "DoubleZero",
+      "source": "Binance",
+      "pair": "2ZUSDT"
+    },
+    {
+      "cmc_id": 39870,
+      "name": "USD.AI",
+      "source": "Gate.io",
+      "pair": "CHIP_USDT"
+    },
+    {
+      "cmc_id": 1757,
+      "name": "FUNToken",
+      "source": "Gate.io",
+      "pair": "FUNTOKEN_USDT"
+    },
+    {
+      "cmc_id": 28324,
+      "name": "dYdX",
+      "source": "Binance",
+      "pair": "DYDXUSDT"
+    },
+    {
+      "cmc_id": 38056,
+      "name": "Circle Internet Group Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "CRCLON_USDT"
+    },
+    {
+      "cmc_id": 11857,
+      "name": "GMX",
+      "source": "Binance",
+      "pair": "GMXUSDT"
+    },
+    {
+      "cmc_id": 7080,
+      "name": "Gala",
+      "source": "Binance",
+      "pair": "GALAUSDT"
+    },
+    {
+      "cmc_id": 14588,
+      "name": "peaq",
+      "source": "Gate.io",
+      "pair": "PEAQ_USDT"
+    },
+    {
+      "cmc_id": 39121,
+      "name": "Magma Finance",
+      "source": "Gate.io",
+      "pair": "MAGMA_USDT"
+    },
+    {
+      "cmc_id": 34958,
+      "name": "Tagger",
+      "source": "Gate.io",
+      "pair": "TAG_USDT"
+    },
+    {
+      "cmc_id": 1684,
+      "name": "Qtum",
+      "source": "Binance",
+      "pair": "QTUMUSDT"
+    },
+    {
+      "cmc_id": 36119,
+      "name": "Walrus",
+      "source": "Binance",
+      "pair": "WALUSDT"
+    },
+    {
+      "cmc_id": 1896,
+      "name": "0x Protocol",
+      "source": "Gate.io",
+      "pair": "ZRX_USDT"
+    },
+    {
+      "cmc_id": 35347,
+      "name": "Official Melania Meme",
+      "source": "Gate.io",
+      "pair": "MELANIA_USDT"
+    },
+    {
+      "cmc_id": 23635,
+      "name": "Four",
+      "source": "Binance",
+      "pair": "FORMUSDT"
+    },
+    {
+      "cmc_id": 33280,
+      "name": "Cheems (cheems.pet)",
+      "source": "Gate.io",
+      "pair": "CHEEMS_USDT"
+    },
+    {
+      "cmc_id": 21707,
+      "name": "RedStone",
+      "source": "Binance",
+      "pair": "REDUSDT"
+    },
+    {
+      "cmc_id": 29587,
+      "name": "Wormhole",
+      "source": "Binance",
+      "pair": "WUSDT"
+    },
+    {
+      "cmc_id": 8646,
+      "name": "Mina",
+      "source": "Binance",
+      "pair": "MINAUSDT"
+    },
+    {
+      "cmc_id": 3661,
+      "name": "Stronghold SHx",
+      "source": "Gate.io",
+      "pair": "SHX_USDT"
+    },
+    {
+      "cmc_id": 4195,
+      "name": "FTX Token",
+      "source": "Binance",
+      "pair": "FTTUSDT"
+    },
+    {
+      "cmc_id": 21585,
+      "name": "Safe",
+      "source": "Gate.io",
+      "pair": "SAFE_USDT"
+    },
+    {
+      "cmc_id": 1785,
+      "name": "Gas",
+      "source": "Gate.io",
+      "pair": "GAS_USDT"
+    },
+    {
+      "cmc_id": 1732,
+      "name": "Numeraire",
+      "source": "Binance",
+      "pair": "NMRUSDT"
+    },
+    {
+      "cmc_id": 37004,
+      "name": "Tesla tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "TSLAX_USDT"
+    },
+    {
+      "cmc_id": 25028,
+      "name": "ORDI",
+      "source": "Binance",
+      "pair": "ORDIUSDT"
+    },
+    {
+      "cmc_id": 7548,
+      "name": "WEMIX",
+      "source": "Gate.io",
+      "pair": "WEMIX_USDT"
+    },
+    {
+      "cmc_id": 4846,
+      "name": "Kava",
+      "source": "Binance",
+      "pair": "KAVAUSDT"
+    },
+    {
+      "cmc_id": 5864,
+      "name": "Yearn",
+      "source": "Gate.io",
+      "pair": "YFI_USDT"
+    },
+    {
+      "cmc_id": 3640,
+      "name": "Livepeer",
+      "source": "Binance",
+      "pair": "LPTUSDT"
+    },
+    {
+      "cmc_id": 40218,
+      "name": "SpaceX tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "SPCXX_USDT"
+    },
+    {
+      "cmc_id": 19075,
+      "name": "ECOMI",
+      "source": "Gate.io",
+      "pair": "OMI_USDT"
+    },
+    {
+      "cmc_id": 40925,
+      "name": "Artificial Inu",
+      "source": "Gate.io",
+      "pair": "AINVDA_USDT"
+    },
+    {
+      "cmc_id": 19269,
+      "name": "CoW Protocol",
+      "source": "Binance",
+      "pair": "COWUSDT"
+    },
+    {
+      "cmc_id": 39377,
+      "name": "Seeker",
+      "source": "Gate.io",
+      "pair": "SKR_USDT"
+    },
+    {
+      "cmc_id": 37006,
+      "name": "SP500 tokenized ETF (xStock)",
+      "source": "Gate.io",
+      "pair": "SPYX_USDT"
+    },
+    {
+      "cmc_id": 5665,
+      "name": "Helium",
+      "source": "Gate.io",
+      "pair": "HNT_USDT"
+    },
+    {
+      "cmc_id": 3701,
+      "name": "Rootstock Infrastructure Framework",
+      "source": "Binance",
+      "pair": "RIFUSDT"
+    },
+    {
+      "cmc_id": 5034,
+      "name": "Kusama",
+      "source": "Binance",
+      "pair": "KSMUSDT"
+    },
+    {
+      "cmc_id": 40092,
+      "name": "o1.exchange",
+      "source": "Gate.io",
+      "pair": "O_USDT"
+    },
+    {
+      "cmc_id": 2586,
+      "name": "Synthetix",
+      "source": "Gate.io",
+      "pair": "SNX_USDT"
+    },
+    {
+      "cmc_id": 32198,
+      "name": "Babylon",
+      "source": "Binance",
+      "pair": "BABYUSDT"
+    },
+    {
+      "cmc_id": 21259,
+      "name": "ZetaChain",
+      "source": "Gate.io",
+      "pair": "ZETA_USDT"
+    },
+    {
+      "cmc_id": 3822,
+      "name": "Theta Fuel",
+      "source": "Binance",
+      "pair": "TFUELUSDT"
+    },
+    {
+      "cmc_id": 7127,
+      "name": "Velo",
+      "source": "Gate.io",
+      "pair": "VELO_USDT"
+    },
+    {
+      "cmc_id": 5350,
+      "name": "XPR Network",
+      "source": "Gate.io",
+      "pair": "XPR_USDT"
+    },
+    {
+      "cmc_id": 4206,
+      "name": "WINkLink",
+      "source": "Binance",
+      "pair": "WINUSDT"
+    },
+    {
+      "cmc_id": 40944,
+      "name": "MarsCoin",
+      "source": "Binance",
+      "pair": "MARSCOINUSDT"
+    },
+    {
+      "cmc_id": 29169,
+      "name": "Qubic",
+      "source": "Gate.io",
+      "pair": "QUBIC_USDT"
+    },
+    {
+      "cmc_id": 109,
+      "name": "DigiByte",
+      "source": "Binance",
+      "pair": "DGBUSDT"
+    },
+    {
+      "cmc_id": 38841,
+      "name": "UnifAI Network",
+      "source": "Gate.io",
+      "pair": "UAI_USDT"
+    },
+    {
+      "cmc_id": 10407,
+      "name": "Baby Doge Coin",
+      "source": "Gate.io",
+      "pair": "BABYDOGE_USDT"
+    },
+    {
+      "cmc_id": 34118,
+      "name": "Banana For Scale",
+      "source": "Binance",
+      "pair": "BANANAS31USDT"
+    },
+    {
+      "cmc_id": 6945,
+      "name": "Amp",
+      "source": "Binance",
+      "pair": "AMPUSDT"
+    },
+    {
+      "cmc_id": 35763,
+      "name": "KAITO",
+      "source": "Binance",
+      "pair": "KAITOUSDT"
+    },
+    {
+      "cmc_id": 2682,
+      "name": "Holo",
+      "source": "Binance",
+      "pair": "HOTUSDT"
+    },
+    {
+      "cmc_id": 3012,
+      "name": "VeThor Token",
+      "source": "Binance",
+      "pair": "VTHOUSDT"
+    },
+    {
+      "cmc_id": 29835,
+      "name": "io.net",
+      "source": "Binance",
+      "pair": "IOUSDT"
+    },
+    {
+      "cmc_id": 37166,
+      "name": "ONEchain",
+      "source": "Gate.io",
+      "pair": "CROSS_USDT"
+    },
+    {
+      "cmc_id": 6748,
+      "name": "Centrifuge",
+      "source": "Binance",
+      "pair": "CFGUSDT"
+    },
+    {
+      "cmc_id": 9260,
+      "name": "ZIG Finance",
+      "source": "Gate.io",
+      "pair": "ZIG_USDT"
+    },
+    {
+      "cmc_id": 4092,
+      "name": "Dusk",
+      "source": "Binance",
+      "pair": "DUSKUSDT"
+    },
+    {
+      "cmc_id": 40224,
+      "name": "Re",
+      "source": "Binance",
+      "pair": "REUSDT"
+    },
+    {
+      "cmc_id": 6758,
+      "name": "SushiSwap",
+      "source": "Gate.io",
+      "pair": "SUSHI_USDT"
+    },
+    {
+      "cmc_id": 41861,
+      "name": "牛来 (Niu Lai)",
+      "source": "Gate.io",
+      "pair": "牛来_USDT"
+    },
+    {
+      "cmc_id": 17799,
+      "name": "Axelar",
+      "source": "Binance",
+      "pair": "AXLUSDT"
+    },
+    {
+      "cmc_id": 38978,
+      "name": "Irys",
+      "source": "Gate.io",
+      "pair": "IRYS_USDT"
+    },
+    {
+      "cmc_id": 36492,
+      "name": "Acurast",
+      "source": "Gate.io",
+      "pair": "ACU_USDT"
+    },
+    {
+      "cmc_id": 24911,
+      "name": "Turbo",
+      "source": "Binance",
+      "pair": "TURBOUSDT"
+    },
+    {
+      "cmc_id": 36569,
+      "name": "Spark",
+      "source": "Binance",
+      "pair": "SPKUSDT"
+    },
+    {
+      "cmc_id": 34812,
+      "name": "Bio Protocol",
+      "source": "Binance",
+      "pair": "BIOUSDT"
+    },
+    {
+      "cmc_id": 27657,
+      "name": "Linea",
+      "source": "Binance",
+      "pair": "LINEAUSDT"
+    },
+    {
+      "cmc_id": 38770,
+      "name": "MegaETH",
+      "source": "Gate.io",
+      "pair": "MEGA_USDT"
+    },
+    {
+      "cmc_id": 33881,
+      "name": "Comedian",
+      "source": "Gate.io",
+      "pair": "BAN_USDT"
+    },
+    {
+      "cmc_id": 12885,
+      "name": "Astar",
+      "source": "Binance",
+      "pair": "ASTRUSDT"
+    },
+    {
+      "cmc_id": 36044,
+      "name": "NEXPACE",
+      "source": "Binance",
+      "pair": "NXPCUSDT"
+    },
+    {
+      "cmc_id": 17751,
+      "name": "Threshold",
+      "source": "Binance",
+      "pair": "TUSDT"
+    },
+    {
+      "cmc_id": 37637,
+      "name": "Somnia",
+      "source": "Binance",
+      "pair": "SOMIUSDT"
+    },
+    {
+      "cmc_id": 3871,
+      "name": "AB",
+      "source": "Gate.io",
+      "pair": "AB_USDT"
+    },
+    {
+      "cmc_id": 5198,
+      "name": "Creditcoin",
+      "source": "Gate.io",
+      "pair": "CTC_USDT"
+    },
+    {
+      "cmc_id": 24647,
+      "name": "Berachain",
+      "source": "Binance",
+      "pair": "BERAUSDT"
+    },
+    {
+      "cmc_id": 36041,
+      "name": "Mubarak",
+      "source": "Binance",
+      "pair": "MUBARAKUSDT"
+    },
+    {
+      "cmc_id": 2299,
+      "name": "aelf",
+      "source": "Gate.io",
+      "pair": "ELF_USDT"
+    },
+    {
+      "cmc_id": 6958,
+      "name": "Alchemy Pay",
+      "source": "Binance",
+      "pair": "ACHUSDT"
+    },
+    {
+      "cmc_id": 2130,
+      "name": "Enjin Coin",
+      "source": "Binance",
+      "pair": "ENJUSDT"
+    },
+    {
+      "cmc_id": 35626,
+      "name": "Data Network",
+      "source": "Gate.io",
+      "pair": "DATA_USDT"
+    },
+    {
+      "cmc_id": 33983,
+      "name": "SuperTrust",
+      "source": "Gate.io",
+      "pair": "SUT_USDT"
+    },
+    {
+      "cmc_id": 29073,
+      "name": "Altlayer",
+      "source": "Binance",
+      "pair": "ALTUSDT"
+    },
+    {
+      "cmc_id": 24613,
+      "name": "Open Campus",
+      "source": "Binance",
+      "pair": "EDUUSDT"
+    },
+    {
+      "cmc_id": 37057,
+      "name": "Nasdaq tokenized ETF (xStock)",
+      "source": "Gate.io",
+      "pair": "QQQX_USDT"
+    },
+    {
+      "cmc_id": 36992,
+      "name": "NVIDIA tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "NVDAX_USDT"
+    },
+    {
+      "cmc_id": 2566,
+      "name": "Ontology",
+      "source": "Binance",
+      "pair": "ONTUSDT"
+    },
+    {
+      "cmc_id": 38309,
+      "name": "Holoworld AI",
+      "source": "Binance",
+      "pair": "HOLOUSDT"
+    },
+    {
+      "cmc_id": 5567,
+      "name": "Celo",
+      "source": "Binance",
+      "pair": "CELOUSDT"
+    },
+    {
+      "cmc_id": 35537,
+      "name": "Jelly-My-Jelly",
+      "source": "Gate.io",
+      "pair": "JELLYJELLY_USDT"
+    },
+    {
+      "cmc_id": 38067,
+      "name": "SPDR S&P 500 Tokenized ETF (Ondo)",
+      "source": "Gate.io",
+      "pair": "SPYON_USDT"
+    },
+    {
+      "cmc_id": 4944,
+      "name": "Tellor",
+      "source": "Gate.io",
+      "pair": "TRB_USDT"
+    },
+    {
+      "cmc_id": 7288,
+      "name": "Venus",
+      "source": "Binance",
+      "pair": "XVSUSDT"
+    },
+    {
+      "cmc_id": 35268,
+      "name": "GoPlus Security",
+      "source": "Binance",
+      "pair": "GPSUSDT"
+    },
+    {
+      "cmc_id": 34926,
+      "name": "AI Rig Complex",
+      "source": "Gate.io",
+      "pair": "ARC_USDT"
+    },
+    {
+      "cmc_id": 39521,
+      "name": "Aztec",
+      "source": "Gate.io",
+      "pair": "AZTEC_USDT"
+    },
+    {
+      "cmc_id": 21846,
+      "name": "SPACE ID",
+      "source": "Binance",
+      "pair": "IDUSDT"
+    },
+    {
+      "cmc_id": 32193,
+      "name": "Aleo",
+      "source": "Gate.io",
+      "pair": "ALEO_USDT"
+    },
+    {
+      "cmc_id": 38489,
+      "name": "ChainOpera AI",
+      "source": "Gate.io",
+      "pair": "COAI_USDT"
+    },
+    {
+      "cmc_id": 33120,
+      "name": "Initia",
+      "source": "Binance",
+      "pair": "INITUSDT"
+    },
+    {
+      "cmc_id": 41878,
+      "name": "Catecoin (cate.meme)",
+      "source": "Gate.io",
+      "pair": "CATE_USDT"
+    },
+    {
+      "cmc_id": 25264,
+      "name": "Snek",
+      "source": "Gate.io",
+      "pair": "SNEK_USDT"
+    },
+    {
+      "cmc_id": 27750,
+      "name": "Toshi",
+      "source": "Gate.io",
+      "pair": "TOSHI_USDT"
+    },
+    {
+      "cmc_id": 36770,
+      "name": "Infinity Ground",
+      "source": "Gate.io",
+      "pair": "AIN_USDT"
+    },
+    {
+      "cmc_id": 1042,
+      "name": "Siacoin",
+      "source": "Binance",
+      "pair": "SCUSDT"
+    },
+    {
+      "cmc_id": 1567,
+      "name": "Nano",
+      "source": "Binance",
+      "pair": "XNOUSDT"
+    },
+    {
+      "cmc_id": 1637,
+      "name": "iExec RLC",
+      "source": "Binance",
+      "pair": "RLCUSDT"
+    },
+    {
+      "cmc_id": 42310,
+      "name": "Ritual",
+      "source": "Gate.io",
+      "pair": "RITUAL_USDT"
+    },
+    {
+      "cmc_id": 39548,
+      "name": "Espresso",
+      "source": "Binance",
+      "pair": "ESPUSDT"
+    },
+    {
+      "cmc_id": 38408,
+      "name": "Lombard",
+      "source": "Binance",
+      "pair": "BARDUSDT"
+    },
+    {
+      "cmc_id": 20362,
+      "name": "Polymesh",
+      "source": "Binance",
+      "pair": "POLYXUSDT"
+    },
+    {
+      "cmc_id": 29870,
+      "name": "BOOK OF MEME",
+      "source": "Binance",
+      "pair": "BOMEUSDT"
+    },
+    {
+      "cmc_id": 4558,
+      "name": "Flow",
+      "source": "Binance",
+      "pair": "FLOWUSDT"
+    },
+    {
+      "cmc_id": 42031,
+      "name": "Anonymous Cat",
+      "source": "Gate.io",
+      "pair": "ZCAT_USDT"
+    },
+    {
+      "cmc_id": 2765,
+      "name": "XYO",
+      "source": "Gate.io",
+      "pair": "XYO_USDT"
+    },
+    {
+      "cmc_id": 39177,
+      "name": "TronBank",
+      "source": "Gate.io",
+      "pair": "TBK_USDT"
+    },
+    {
+      "cmc_id": 40980,
+      "name": "DAPPOS",
+      "source": "Gate.io",
+      "pair": "DOS_USDT"
+    },
+    {
+      "cmc_id": 12147,
+      "name": "Synapse",
+      "source": "Binance",
+      "pair": "SYNUSDT"
+    },
+    {
+      "cmc_id": 28782,
+      "name": "Popcat (SOL)",
+      "source": "Gate.io",
+      "pair": "POPCAT_USDT"
+    },
+    {
+      "cmc_id": 2071,
+      "name": "Request",
+      "source": "Gate.io",
+      "pair": "REQ_USDT"
+    },
+    {
+      "cmc_id": 33788,
+      "name": "Peanut the Squirrel",
+      "source": "Binance",
+      "pair": "PNUTUSDT"
+    },
+    {
+      "cmc_id": 2469,
+      "name": "Zilliqa",
+      "source": "Binance",
+      "pair": "ZILUSDT"
+    },
+    {
+      "cmc_id": 14101,
+      "name": "Ronin",
+      "source": "Binance",
+      "pair": "RONINUSDT"
+    },
+    {
+      "cmc_id": 37013,
+      "name": "Alphabet tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "GOOGLX_USDT"
+    },
+    {
+      "cmc_id": 5899,
+      "name": "Casper",
+      "source": "Gate.io",
+      "pair": "CSPR_USDT"
+    },
+    {
+      "cmc_id": 32120,
+      "name": "Gravity",
+      "source": "Binance",
+      "pair": "GUSDT"
+    },
+    {
+      "cmc_id": 3783,
+      "name": "Ankr",
+      "source": "Binance",
+      "pair": "ANKRUSDT"
+    },
+    {
+      "cmc_id": 37387,
+      "name": "BAS",
+      "source": "Gate.io",
+      "pair": "BAS_USDT"
+    },
+    {
+      "cmc_id": 38967,
+      "name": "RaveDAO",
+      "source": "Gate.io",
+      "pair": "RAVE_USDT"
+    },
+    {
+      "cmc_id": 32941,
+      "name": "Fractal Bitcoin",
+      "source": "Gate.io",
+      "pair": "FB_USDT"
+    },
+    {
+      "cmc_id": 693,
+      "name": "Verge",
+      "source": "Binance",
+      "pair": "XVGUSDT"
+    },
+    {
+      "cmc_id": 12999,
+      "name": "ssv.network",
+      "source": "Gate.io",
+      "pair": "SSV_USDT"
+    },
+    {
+      "cmc_id": 35702,
+      "name": "Nillion",
+      "source": "Binance",
+      "pair": "NILUSDT"
+    },
+    {
+      "cmc_id": 30843,
+      "name": "Renzo",
+      "source": "Binance",
+      "pair": "REZUSDT"
+    },
+    {
+      "cmc_id": 6841,
+      "name": "Phala Network",
+      "source": "Binance",
+      "pair": "PHAUSDT"
+    },
+    {
+      "cmc_id": 8536,
+      "name": "Mask Network",
+      "source": "Binance",
+      "pair": "MASKUSDT"
+    },
+    {
+      "cmc_id": 18031,
+      "name": "Concordium",
+      "source": "Gate.io",
+      "pair": "CCD_USDT"
+    },
+    {
+      "cmc_id": 27659,
+      "name": "Mog Coin",
+      "source": "Gate.io",
+      "pair": "MOG_USDT"
+    },
+    {
+      "cmc_id": 16093,
+      "name": "KUB Coin",
+      "source": "Gate.io",
+      "pair": "KUB_USDT"
+    },
+    {
+      "cmc_id": 38102,
+      "name": "AriaAI",
+      "source": "Gate.io",
+      "pair": "ARIA_USDT"
+    },
+    {
+      "cmc_id": 4679,
+      "name": "Band",
+      "source": "Binance",
+      "pair": "BANDUSDT"
+    },
+    {
+      "cmc_id": 35701,
+      "name": "GOHOME",
+      "source": "Gate.io",
+      "pair": "GOHOME_USDT"
+    },
+    {
+      "cmc_id": 12220,
+      "name": "Osmosis",
+      "source": "Binance",
+      "pair": "OSMOUSDT"
+    },
+    {
+      "cmc_id": 37593,
+      "name": "Succinct",
+      "source": "Binance",
+      "pair": "PROVEUSDT"
+    },
+    {
+      "cmc_id": 36319,
+      "name": "OKZOO",
+      "source": "Gate.io",
+      "pair": "AIOT_USDT"
+    },
+    {
+      "cmc_id": 14806,
+      "name": "ConstitutionDAO",
+      "source": "Binance",
+      "pair": "PEOPLEUSDT"
+    },
+    {
+      "cmc_id": 30126,
+      "name": "cat in a dogs world",
+      "source": "Gate.io",
+      "pair": "MEW_USDT"
+    },
+    {
+      "cmc_id": 38757,
+      "name": "APRO",
+      "source": "Binance",
+      "pair": "ATUSDT"
+    },
+    {
+      "cmc_id": 1214,
+      "name": "Lisk",
+      "source": "Binance",
+      "pair": "LSKUSDT"
+    },
+    {
+      "cmc_id": 30712,
+      "name": "Merlin Chain",
+      "source": "Gate.io",
+      "pair": "MERL_USDT"
+    },
+    {
+      "cmc_id": 28850,
+      "name": "Notcoin",
+      "source": "Binance",
+      "pair": "NOTUSDT"
+    },
+    {
+      "cmc_id": 14803,
+      "name": "Aurora",
+      "source": "Gate.io",
+      "pair": "AURORA_USDT"
+    },
+    {
+      "cmc_id": 38299,
+      "name": "Veranta",
+      "source": "Binance",
+      "pair": "AVNTUSDT"
+    },
+    {
+      "cmc_id": 21533,
+      "name": "Lista DAO",
+      "source": "Gate.io",
+      "pair": "LISTA_USDT"
+    },
+    {
+      "cmc_id": 14519,
+      "name": "VVS Finance",
+      "source": "Gate.io",
+      "pair": "VVS_USDT"
+    },
+    {
+      "cmc_id": 33093,
+      "name": "Moo Deng (moodengsol.com)",
+      "source": "Gate.io",
+      "pair": "MOODENG_USDT"
+    },
+    {
+      "cmc_id": 39379,
+      "name": "ETHGas",
+      "source": "Gate.io",
+      "pair": "GWEI_USDT"
+    },
+    {
+      "cmc_id": 2137,
+      "name": "Electroneum",
+      "source": "Gate.io",
+      "pair": "ETN_USDT"
+    },
+    {
+      "cmc_id": 32644,
+      "name": "Eurite",
+      "source": "Binance",
+      "pair": "EURIUSDT"
+    },
+    {
+      "cmc_id": 38908,
+      "name": "Allora",
+      "source": "Binance",
+      "pair": "ALLOUSDT"
+    },
+    {
+      "cmc_id": 35954,
+      "name": "Loaded Lions",
+      "source": "Gate.io",
+      "pair": "LION_USDT"
+    },
+    {
+      "cmc_id": 3951,
+      "name": "Pirate Chain",
+      "source": "Gate.io",
+      "pair": "ARRR_USDT"
+    },
+    {
+      "cmc_id": 32197,
+      "name": "Magic Eden",
+      "source": "Binance",
+      "pair": "MEUSDT"
+    },
+    {
+      "cmc_id": 7236,
+      "name": "Celo Dollar",
+      "source": "Gate.io",
+      "pair": "CUSD_USDT"
+    },
+    {
+      "cmc_id": 38750,
+      "name": "Orochi Network",
+      "source": "Gate.io",
+      "pair": "ON_USDT"
+    },
+    {
+      "cmc_id": 37340,
+      "name": "Chainbase",
+      "source": "Binance",
+      "pair": "CUSDT"
+    },
+    {
+      "cmc_id": 2777,
+      "name": "IoTeX",
+      "source": "Binance",
+      "pair": "IOTXUSDT"
+    },
+    {
+      "cmc_id": 3217,
+      "name": "Ontology Gas",
+      "source": "Binance",
+      "pair": "ONGUSDT"
+    },
+    {
+      "cmc_id": 31526,
+      "name": "Moca Network",
+      "source": "Gate.io",
+      "pair": "MOCA_USDT"
+    },
+    {
+      "cmc_id": 1759,
+      "name": "Status",
+      "source": "Gate.io",
+      "pair": "SNT_USDT"
+    },
+    {
+      "cmc_id": 36300,
+      "name": "SKYAI",
+      "source": "Gate.io",
+      "pair": "SKYAI_USDT"
+    },
+    {
+      "cmc_id": 38094,
+      "name": "Invesco QQQ Tokenized ETF (Ondo)",
+      "source": "Gate.io",
+      "pair": "QQQON_USDT"
+    },
+    {
+      "cmc_id": 38093,
+      "name": "NVIDIA Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "NVDAON_USDT"
+    },
+    {
+      "cmc_id": 36671,
+      "name": "Sahara AI",
+      "source": "Binance",
+      "pair": "SAHARAUSDT"
+    },
+    {
+      "cmc_id": 33223,
+      "name": "LAB",
+      "source": "Gate.io",
+      "pair": "LAB_USDT"
+    },
+    {
+      "cmc_id": 30140,
+      "name": "Nesa",
+      "source": "Gate.io",
+      "pair": "NES_USDT"
+    },
+    {
+      "cmc_id": 36080,
+      "name": "MultiBank Group",
+      "source": "Gate.io",
+      "pair": "MBG_USDT"
+    },
+    {
+      "cmc_id": 2943,
+      "name": "Rocket Pool",
+      "source": "Binance",
+      "pair": "RPLUSDT"
+    },
+    {
+      "cmc_id": 39094,
+      "name": "AntFun",
+      "source": "Gate.io",
+      "pair": "ANTFUN_USDT"
+    },
+    {
+      "cmc_id": 38837,
+      "name": "Audiera",
+      "source": "Gate.io",
+      "pair": "BEAT_USDT"
+    },
+    {
+      "cmc_id": 20700,
+      "name": "Wiki Cat",
+      "source": "Gate.io",
+      "pair": "WKC_USDT"
+    },
+    {
+      "cmc_id": 1586,
+      "name": "Ark",
+      "source": "Binance",
+      "pair": "ARKUSDT"
+    },
+    {
+      "cmc_id": 34880,
+      "name": "Alchemist AI",
+      "source": "Gate.io",
+      "pair": "ALCH_USDT"
+    },
+    {
+      "cmc_id": 36238,
+      "name": "XPIN Network",
+      "source": "Gate.io",
+      "pair": "XPIN_USDT"
+    },
+    {
+      "cmc_id": 7817,
+      "name": "Bifrost",
+      "source": "Gate.io",
+      "pair": "BFC_USDT"
+    },
+    {
+      "cmc_id": 36313,
+      "name": "TROLL (SOL)",
+      "source": "Gate.io",
+      "pair": "TROLL_USDT"
+    },
+    {
+      "cmc_id": 35690,
+      "name": "B3 (Base)",
+      "source": "Gate.io",
+      "pair": "B3_USDT"
+    },
+    {
+      "cmc_id": 5617,
+      "name": "UMA",
+      "source": "Binance",
+      "pair": "UMAUSDT"
+    },
+    {
+      "cmc_id": 1974,
+      "name": "Propy",
+      "source": "Gate.io",
+      "pair": "PRO_USDT"
+    },
+    {
+      "cmc_id": 22620,
+      "name": "Across Protocol",
+      "source": "Gate.io",
+      "pair": "ACX_USDT"
+    },
+    {
+      "cmc_id": 1274,
+      "name": "Waves",
+      "source": "Gate.io",
+      "pair": "WAVES_USDT"
+    },
+    {
+      "cmc_id": 16612,
+      "name": "Nosana",
+      "source": "Gate.io",
+      "pair": "NOS_USDT"
+    },
+    {
+      "cmc_id": 2545,
+      "name": "ArcBlock",
+      "source": "Gate.io",
+      "pair": "ABT_USDT"
+    },
+    {
+      "cmc_id": 14280,
+      "name": "Euler",
+      "source": "Binance",
+      "pair": "EULUSDT"
+    },
+    {
+      "cmc_id": 35429,
+      "name": "Solayer",
+      "source": "Binance",
+      "pair": "LAYERUSDT"
+    },
+    {
+      "cmc_id": 38470,
+      "name": "Giggle Fund",
+      "source": "Binance",
+      "pair": "GIGGLEUSDT"
+    },
+    {
+      "cmc_id": 37456,
+      "name": "OpenLedger",
+      "source": "Binance",
+      "pair": "OPENUSDT"
+    },
+    {
+      "cmc_id": 3992,
+      "name": "COTI",
+      "source": "Binance",
+      "pair": "COTIUSDT"
+    },
+    {
+      "cmc_id": 33849,
+      "name": "HashKey Platform Token",
+      "source": "Gate.io",
+      "pair": "HSK_USDT"
+    },
+    {
+      "cmc_id": 2132,
+      "name": "Powerledger",
+      "source": "Binance",
+      "pair": "POWRUSDT"
+    },
+    {
+      "cmc_id": 28301,
+      "name": "Memecoin",
+      "source": "Binance",
+      "pair": "MEMEUSDT"
+    },
+    {
+      "cmc_id": 32452,
+      "name": "Movement",
+      "source": "Binance",
+      "pair": "MOVEUSDT"
+    },
+    {
+      "cmc_id": 13631,
+      "name": "Manta Network",
+      "source": "Gate.io",
+      "pair": "MANTA_USDT"
+    },
+    {
+      "cmc_id": 12573,
+      "name": "Clearpool",
+      "source": "Gate.io",
+      "pair": "CPOOL_USDT"
+    },
+    {
+      "cmc_id": 1727,
+      "name": "Bancor",
+      "source": "Binance",
+      "pair": "BNTUSDT"
+    },
+    {
+      "cmc_id": 20314,
+      "name": "Terra",
+      "source": "Binance",
+      "pair": "LUNAUSDT"
+    },
+    {
+      "cmc_id": 21870,
+      "name": "Metaplex",
+      "source": "Gate.io",
+      "pair": "MPLX_USDT"
+    },
+    {
+      "cmc_id": 35386,
+      "name": "AO",
+      "source": "Gate.io",
+      "pair": "AO_USDT"
+    },
+    {
+      "cmc_id": 5429,
+      "name": "DEAPcoin",
+      "source": "Gate.io",
+      "pair": "DEP_USDT"
+    },
+    {
+      "cmc_id": 39800,
+      "name": "OpenGradient",
+      "source": "Binance",
+      "pair": "OPGUSDT"
+    },
+    {
+      "cmc_id": 3835,
+      "name": "Orbs",
+      "source": "Gate.io",
+      "pair": "ORBS_USDT"
+    },
+    {
+      "cmc_id": 36352,
+      "name": "BSquared Network",
+      "source": "Gate.io",
+      "pair": "B2_USDT"
+    },
+    {
+      "cmc_id": 35931,
+      "name": "ZORA",
+      "source": "Gate.io",
+      "pair": "ZORA_USDT"
+    },
+    {
+      "cmc_id": 2405,
+      "name": "IOST",
+      "source": "Binance",
+      "pair": "IOSTUSDT"
+    },
+    {
+      "cmc_id": 5370,
+      "name": "Hive",
+      "source": "Binance",
+      "pair": "HIVEUSDT"
+    },
+    {
+      "cmc_id": 32521,
+      "name": "Neiro",
+      "source": "Gate.io",
+      "pair": "NEIRO_USDT"
+    },
+    {
+      "cmc_id": 14783,
+      "name": "Treasure",
+      "source": "Binance",
+      "pair": "MAGICUSDT"
+    },
+    {
+      "cmc_id": 3029,
+      "name": "Flux",
+      "source": "Binance",
+      "pair": "FLUXUSDT"
+    },
+    {
+      "cmc_id": 37545,
+      "name": "BankrCoin",
+      "source": "Gate.io",
+      "pair": "BNKR_USDT"
+    },
+    {
+      "cmc_id": 34083,
+      "name": "Zerebro",
+      "source": "Gate.io",
+      "pair": "ZEREBRO_USDT"
+    },
+    {
+      "cmc_id": 28340,
+      "name": "SMART",
+      "source": "Gate.io",
+      "pair": "SMART_USDT"
+    },
+    {
+      "cmc_id": 7129,
+      "name": "TerraClassicUSD",
+      "source": "Binance",
+      "pair": "USTCUSDT"
+    },
+    {
+      "cmc_id": 38231,
+      "name": "Momentum",
+      "source": "Binance",
+      "pair": "MMTUSDT"
+    },
+    {
+      "cmc_id": 38175,
+      "name": "OVERTAKE",
+      "source": "Gate.io",
+      "pair": "TAKE_USDT"
+    },
+    {
+      "cmc_id": 37298,
+      "name": "Velvet",
+      "source": "Gate.io",
+      "pair": "VELVET_USDT"
+    },
+    {
+      "cmc_id": 36281,
+      "name": "Hyperlane",
+      "source": "Binance",
+      "pair": "HYPERUSDT"
+    },
+    {
+      "cmc_id": 1230,
+      "name": "Steem",
+      "source": "Binance",
+      "pair": "STEEMUSDT"
+    },
+    {
+      "cmc_id": 31528,
+      "name": "deBridge",
+      "source": "Gate.io",
+      "pair": "DBR_USDT"
+    },
+    {
+      "cmc_id": 36102,
+      "name": "Particle Network",
+      "source": "Binance",
+      "pair": "PARTIUSDT"
+    },
+    {
+      "cmc_id": 9436,
+      "name": "Dogelon Mars",
+      "source": "Gate.io",
+      "pair": "DOGELONMARS_USDT"
+    },
+    {
+      "cmc_id": 2982,
+      "name": "MVL",
+      "source": "Gate.io",
+      "pair": "MVL_USDT"
+    },
+    {
+      "cmc_id": 2341,
+      "name": "SwftCoin",
+      "source": "Gate.io",
+      "pair": "SWFTC_USDT"
+    },
+    {
+      "cmc_id": 27565,
+      "name": "Arkham",
+      "source": "Binance",
+      "pair": "ARKMUSDT"
+    },
+    {
+      "cmc_id": 12165,
+      "name": "Solv Protocol",
+      "source": "Binance",
+      "pair": "SOLVUSDT"
+    },
+    {
+      "cmc_id": 40008,
+      "name": "Zest Protocol",
+      "source": "Gate.io",
+      "pair": "ZEST_USDT"
+    },
+    {
+      "cmc_id": 33372,
+      "name": "CARV",
+      "source": "Gate.io",
+      "pair": "CARV_USDT"
+    },
+    {
+      "cmc_id": 9040,
+      "name": "Pundi X (New)",
+      "source": "Gate.io",
+      "pair": "PUNDIX_USDT"
+    },
+    {
+      "cmc_id": 42253,
+      "name": "Concrete",
+      "source": "Gate.io",
+      "pair": "CT_USDT"
+    },
+    {
+      "cmc_id": 5444,
+      "name": "Cartesi",
+      "source": "Binance",
+      "pair": "CTSIUSDT"
+    },
+    {
+      "cmc_id": 3801,
+      "name": "BORA",
+      "source": "Gate.io",
+      "pair": "BORA_USDT"
+    },
+    {
+      "cmc_id": 9640,
+      "name": "Metis",
+      "source": "Gate.io",
+      "pair": "METIS_USDT"
+    },
+    {
+      "cmc_id": 36933,
+      "name": "Codatta",
+      "source": "Gate.io",
+      "pair": "XNY_USDT"
+    },
+    {
+      "cmc_id": 34619,
+      "name": "Vana",
+      "source": "Binance",
+      "pair": "VANAUSDT"
+    },
+    {
+      "cmc_id": 1762,
+      "name": "Ergo",
+      "source": "Gate.io",
+      "pair": "ERG_USDT"
+    },
+    {
+      "cmc_id": 20435,
+      "name": "Velodrome Finance",
+      "source": "Binance",
+      "pair": "VELODROMEUSDT"
+    },
+    {
+      "cmc_id": 14822,
+      "name": "Victoria VR",
+      "source": "Gate.io",
+      "pair": "VR_USDT"
+    },
+    {
+      "cmc_id": 23254,
+      "name": "Core",
+      "source": "Gate.io",
+      "pair": "CORE_USDT"
+    },
+    {
+      "cmc_id": 37430,
+      "name": "Trusta.AI",
+      "source": "Gate.io",
+      "pair": "TA_USDT"
+    },
+    {
+      "cmc_id": 38466,
+      "name": "Bless",
+      "source": "Gate.io",
+      "pair": "BLESS_USDT"
+    },
+    {
+      "cmc_id": 35600,
+      "name": "Sign",
+      "source": "Binance",
+      "pair": "SIGNUSDT"
+    },
+    {
+      "cmc_id": 1788,
+      "name": "Metal DAO",
+      "source": "Binance",
+      "pair": "MTLUSDT"
+    },
+    {
+      "cmc_id": 7224,
+      "name": "DODO",
+      "source": "Binance",
+      "pair": "DODOUSDT"
+    },
+    {
+      "cmc_id": 38481,
+      "name": "Anoma",
+      "source": "Gate.io",
+      "pair": "XAN_USDT"
+    },
+    {
+      "cmc_id": 5691,
+      "name": "SKALE",
+      "source": "Gate.io",
+      "pair": "SKL_USDT"
+    },
+    {
+      "cmc_id": 21296,
+      "name": "EthereumPoW",
+      "source": "Gate.io",
+      "pair": "ETHW_USDT"
+    },
+    {
+      "cmc_id": 36133,
+      "name": "Defi App",
+      "source": "Binance",
+      "pair": "HOMEUSDT"
+    },
+    {
+      "cmc_id": 38029,
+      "name": "Tesla Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "TSLAON_USDT"
+    },
+    {
+      "cmc_id": 9444,
+      "name": "Kyber Network Crystal v2",
+      "source": "Gate.io",
+      "pair": "KNC_USDT"
+    },
+    {
+      "cmc_id": 23121,
+      "name": "Blur",
+      "source": "Binance",
+      "pair": "BLURUSDT"
+    },
+    {
+      "cmc_id": 36410,
+      "name": "MYX Finance",
+      "source": "Gate.io",
+      "pair": "MYX_USDT"
+    },
+    {
+      "cmc_id": 32966,
+      "name": "Catizen",
+      "source": "Binance",
+      "pair": "CATIUSDT"
+    },
+    {
+      "cmc_id": 39611,
+      "name": "MANTRA",
+      "source": "Binance",
+      "pair": "MANTRAUSDT"
+    },
+    {
+      "cmc_id": 30168,
+      "name": "Xertra",
+      "source": "Binance",
+      "pair": "STRAXUSDT"
+    },
+    {
+      "cmc_id": 2577,
+      "name": "Ravencoin",
+      "source": "Binance",
+      "pair": "RVNUSDT"
+    },
+    {
+      "cmc_id": 39883,
+      "name": "Gensyn",
+      "source": "Binance",
+      "pair": "AIGENSYNUSDT"
+    },
+    {
+      "cmc_id": 1816,
+      "name": "Civic",
+      "source": "Binance",
+      "pair": "CVCUSDT"
+    },
+    {
+      "cmc_id": 12894,
+      "name": "Subsquid",
+      "source": "Gate.io",
+      "pair": "SQD_USDT"
+    },
+    {
+      "cmc_id": 38554,
+      "name": "KGeN",
+      "source": "Gate.io",
+      "pair": "KGEN_USDT"
+    },
+    {
+      "cmc_id": 38092,
+      "name": "MicroStrategy Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "MSTRON_USDT"
+    },
+    {
+      "cmc_id": 8602,
+      "name": "Bounce Token",
+      "source": "Gate.io",
+      "pair": "AUCTION_USDT"
+    },
+    {
+      "cmc_id": 2776,
+      "name": "AVA (Travala)",
+      "source": "Gate.io",
+      "pair": "AVA_USDT"
+    },
+    {
+      "cmc_id": 5266,
+      "name": "MiL.k",
+      "source": "Gate.io",
+      "pair": "MLK_USDT"
+    },
+    {
+      "cmc_id": 24781,
+      "name": "Cyber",
+      "source": "Binance",
+      "pair": "CYBERUSDT"
+    },
+    {
+      "cmc_id": 38427,
+      "name": "ZEROBASE",
+      "source": "Binance",
+      "pair": "ZBTUSDT"
+    },
+    {
+      "cmc_id": 10688,
+      "name": "Yield Guild Games",
+      "source": "Binance",
+      "pair": "YGGUSDT"
+    },
+    {
+      "cmc_id": 3330,
+      "name": "Pax Dollar",
+      "source": "Gate.io",
+      "pair": "USDP_USDT"
+    },
+    {
+      "cmc_id": 17591,
+      "name": "NYM",
+      "source": "Gate.io",
+      "pair": "NYM_USDT"
+    },
+    {
+      "cmc_id": 38057,
+      "name": "iShares Silver Trust Tokenized ETF (Ondo)",
+      "source": "Gate.io",
+      "pair": "SLVON_USDT"
+    },
+    {
+      "cmc_id": 30096,
+      "name": "Degen",
+      "source": "Gate.io",
+      "pair": "DEGEN_USDT"
+    },
+    {
+      "cmc_id": 36288,
+      "name": "Definitive",
+      "source": "Gate.io",
+      "pair": "EDGE_USDT"
+    },
+    {
+      "cmc_id": 8719,
+      "name": "Illuvium",
+      "source": "Binance",
+      "pair": "ILVUSDT"
+    },
+    {
+      "cmc_id": 39916,
+      "name": "Citrea",
+      "source": "Gate.io",
+      "pair": "CTR_USDT"
+    },
+    {
+      "cmc_id": 7737,
+      "name": "API3",
+      "source": "Binance",
+      "pair": "API3USDT"
+    },
+    {
+      "cmc_id": 10052,
+      "name": "Gitcoin",
+      "source": "Binance",
+      "pair": "GTCUSDT"
+    },
+    {
+      "cmc_id": 37529,
+      "name": "RHEA Finance",
+      "source": "Gate.io",
+      "pair": "RHEA_USDT"
+    },
+    {
+      "cmc_id": 2300,
+      "name": "WAX",
+      "source": "Binance",
+      "pair": "WAXPUSDT"
+    },
+    {
+      "cmc_id": 2930,
+      "name": "IQ",
+      "source": "Binance",
+      "pair": "IQUSDT"
+    },
+    {
+      "cmc_id": 38513,
+      "name": "OpenEden",
+      "source": "Binance",
+      "pair": "EDENUSDT"
+    },
+    {
+      "cmc_id": 36296,
+      "name": "Lorenzo Protocol",
+      "source": "Binance",
+      "pair": "BANKUSDT"
+    },
+    {
+      "cmc_id": 7455,
+      "name": "Audius",
+      "source": "Binance",
+      "pair": "AUDIOUSDT"
+    },
+    {
+      "cmc_id": 33979,
+      "name": "Usual",
+      "source": "Binance",
+      "pair": "USUALUSDT"
+    },
+    {
+      "cmc_id": 39159,
+      "name": "Brevis",
+      "source": "Binance",
+      "pair": "BREVUSDT"
+    },
+    {
+      "cmc_id": 38001,
+      "name": "Alphabet Class A Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "GOOGLON_USDT"
+    },
+    {
+      "cmc_id": 38679,
+      "name": "哈基米",
+      "source": "Gate.io",
+      "pair": "哈基米_USDT"
+    },
+    {
+      "cmc_id": 38376,
+      "name": "EVAA Protocol",
+      "source": "Gate.io",
+      "pair": "EVAA_USDT"
+    },
+    {
+      "cmc_id": 3945,
+      "name": "Harmony",
+      "source": "Binance",
+      "pair": "ONEUSDT"
+    },
+    {
+      "cmc_id": 39665,
+      "name": "Unitas",
+      "source": "Gate.io",
+      "pair": "UP_USDT"
+    },
+    {
+      "cmc_id": 25114,
+      "name": "Cetus Protocol",
+      "source": "Binance",
+      "pair": "CETUSUSDT"
+    },
+    {
+      "cmc_id": 29676,
+      "name": "Aevo",
+      "source": "Binance",
+      "pair": "AEVOUSDT"
+    },
+    {
+      "cmc_id": 35214,
+      "name": "Bubblemaps",
+      "source": "Binance",
+      "pair": "BMTUSDT"
+    },
+    {
+      "cmc_id": 34987,
+      "name": "FLock.io",
+      "source": "Gate.io",
+      "pair": "FLOCK_USDT"
+    },
+    {
+      "cmc_id": 19765,
+      "name": "Moonbirds",
+      "source": "Gate.io",
+      "pair": "BIRB_USDT"
+    },
+    {
+      "cmc_id": 35269,
+      "name": "MetYa",
+      "source": "Gate.io",
+      "pair": "MY_USDT"
+    },
+    {
+      "cmc_id": 35766,
+      "name": "siren",
+      "source": "Gate.io",
+      "pair": "SIREN_USDT"
+    },
+    {
+      "cmc_id": 28230,
+      "name": "Big Time",
+      "source": "Binance",
+      "pair": "BIGTIMEUSDT"
+    },
+    {
+      "cmc_id": 39387,
+      "name": "HeyElsa",
+      "source": "Gate.io",
+      "pair": "ELSA_USDT"
+    },
+    {
+      "cmc_id": 34434,
+      "name": "Rekt (rekt.com)",
+      "source": "Gate.io",
+      "pair": "REKTCOIN_USDT"
+    },
+    {
+      "cmc_id": 7501,
+      "name": "WOO",
+      "source": "Binance",
+      "pair": "WOOUSDT"
+    },
+    {
+      "cmc_id": 5117,
+      "name": "Origin Protocol",
+      "source": "Gate.io",
+      "pair": "OGN_USDT"
+    },
+    {
+      "cmc_id": 36255,
+      "name": "Lucidum Coin",
+      "source": "Gate.io",
+      "pair": "LUCIC_USDT"
+    },
+    {
+      "cmc_id": 38031,
+      "name": "iShares 20+ Year Treasury Bond Tokenized ETF (Ondo)",
+      "source": "Gate.io",
+      "pair": "TLTON_USDT"
+    },
+    {
+      "cmc_id": 8107,
+      "name": "Cobak Token",
+      "source": "Gate.io",
+      "pair": "CBK_USDT"
+    },
+    {
+      "cmc_id": 20622,
+      "name": "Forta",
+      "source": "Gate.io",
+      "pair": "FORT_USDT"
+    },
+    {
+      "cmc_id": 38359,
+      "name": "STBL",
+      "source": "Gate.io",
+      "pair": "STBL_USDT"
+    },
+    {
+      "cmc_id": 35749,
+      "name": "CZ's Dog",
+      "source": "Binance",
+      "pair": "BROCCOLI714USDT"
+    },
+    {
+      "cmc_id": 39671,
+      "name": "龙虾 (Lobster)",
+      "source": "Gate.io",
+      "pair": "龙虾_USDT"
+    },
+    {
+      "cmc_id": 5824,
+      "name": "Smooth Love Potion",
+      "source": "Binance",
+      "pair": "SLPUSDT"
+    },
+    {
+      "cmc_id": 39071,
+      "name": "Cysic",
+      "source": "Gate.io",
+      "pair": "CYS_USDT"
+    },
+    {
+      "cmc_id": 36510,
+      "name": "Lagrange",
+      "source": "Binance",
+      "pair": "LAUSDT"
+    },
+    {
+      "cmc_id": 3814,
+      "name": "Celer Network",
+      "source": "Binance",
+      "pair": "CELRUSDT"
+    },
+    {
+      "cmc_id": 23756,
+      "name": "ChainGPT",
+      "source": "Binance",
+      "pair": "CGPTUSDT"
+    },
+    {
+      "cmc_id": 5858,
+      "name": "QANplatform",
+      "source": "Gate.io",
+      "pair": "QANX_USDT"
+    },
+    {
+      "cmc_id": 39151,
+      "name": "Capybobo",
+      "source": "Gate.io",
+      "pair": "PYBOBO_USDT"
+    },
+    {
+      "cmc_id": 35114,
+      "name": "NaoX Protocol",
+      "source": "Gate.io",
+      "pair": "NAORIS_USDT"
+    },
+    {
+      "cmc_id": 7429,
+      "name": "Liquity",
+      "source": "Binance",
+      "pair": "LQTYUSDT"
+    },
+    {
+      "cmc_id": 38371,
+      "name": "Boundless",
+      "source": "Binance",
+      "pair": "ZKCUSDT"
+    },
+    {
+      "cmc_id": 9258,
+      "name": "Chia",
+      "source": "Gate.io",
+      "pair": "XCH_USDT"
+    },
+    {
+      "cmc_id": 11823,
+      "name": "Pocket Network",
+      "source": "Gate.io",
+      "pair": "POKT_USDT"
+    },
+    {
+      "cmc_id": 32698,
+      "name": "DOGS",
+      "source": "Binance",
+      "pair": "DOGSUSDT"
+    },
+    {
+      "cmc_id": 42038,
+      "name": "Boner Coin",
+      "source": "Gate.io",
+      "pair": "BONER_USDT"
+    },
+    {
+      "cmc_id": 35051,
+      "name": "Sonic SVM",
+      "source": "Gate.io",
+      "pair": "SONIC_USDT"
+    },
+    {
+      "cmc_id": 2840,
+      "name": "QuarkChain",
+      "source": "Binance",
+      "pair": "QKCUSDT"
+    },
+    {
+      "cmc_id": 7978,
+      "name": "Bonfida",
+      "source": "Binance",
+      "pair": "FIDAUSDT"
+    },
+    {
+      "cmc_id": 30063,
+      "name": "Gigachad",
+      "source": "Gate.io",
+      "pair": "GIGA_USDT"
+    },
+    {
+      "cmc_id": 39042,
+      "name": "Power Protocol",
+      "source": "Gate.io",
+      "pair": "POWER_USDT"
+    },
+    {
+      "cmc_id": 38021,
+      "name": "iShares Core MSCI EAFE Tokenized ETF (Ondo)",
+      "source": "Gate.io",
+      "pair": "IEFAON_USDT"
+    },
+    {
+      "cmc_id": 3978,
+      "name": "Chromia",
+      "source": "Binance",
+      "pair": "CHRUSDT"
+    },
+    {
+      "cmc_id": 32325,
+      "name": "Puffer",
+      "source": "Gate.io",
+      "pair": "PUFFER_USDT"
+    },
+    {
+      "cmc_id": 31525,
+      "name": "Taiko",
+      "source": "Gate.io",
+      "pair": "TAIKO_USDT"
+    },
+    {
+      "cmc_id": 31246,
+      "name": "GameBuild",
+      "source": "Gate.io",
+      "pair": "GAME2_USDT"
+    },
+    {
+      "cmc_id": 8677,
+      "name": "Symbol",
+      "source": "Gate.io",
+      "pair": "XYM_USDT"
+    },
+    {
+      "cmc_id": 41892,
+      "name": "The Interfold",
+      "source": "Gate.io",
+      "pair": "FOLD_USDT"
+    },
+    {
+      "cmc_id": 11568,
+      "name": "Adventure Gold",
+      "source": "Binance",
+      "pair": "AGLDUSDT"
+    },
+    {
+      "cmc_id": 38495,
+      "name": "Mira",
+      "source": "Binance",
+      "pair": "MIRAUSDT"
+    },
+    {
+      "cmc_id": 9543,
+      "name": "Biconomy",
+      "source": "Binance",
+      "pair": "BICOUSDT"
+    },
+    {
+      "cmc_id": 28674,
+      "name": "Fusionist",
+      "source": "Binance",
+      "pair": "ACEUSDT"
+    },
+    {
+      "cmc_id": 5908,
+      "name": "dKargo",
+      "source": "Gate.io",
+      "pair": "DKA_USDT"
+    },
+    {
+      "cmc_id": 39797,
+      "name": "Perle",
+      "source": "Gate.io",
+      "pair": "PRL_USDT"
+    },
+    {
+      "cmc_id": 2630,
+      "name": "PolySwarm",
+      "source": "Gate.io",
+      "pair": "NCT_USDT"
+    },
+    {
+      "cmc_id": 36277,
+      "name": "Bitlayer",
+      "source": "Gate.io",
+      "pair": "BTR_USDT"
+    },
+    {
+      "cmc_id": 6138,
+      "name": "DIA",
+      "source": "Binance",
+      "pair": "DIAUSDT"
+    },
+    {
+      "cmc_id": 38356,
+      "name": "Fogo",
+      "source": "Binance",
+      "pair": "FOGOUSDT"
+    },
+    {
+      "cmc_id": 28933,
+      "name": "Xai",
+      "source": "Binance",
+      "pair": "XAIUSDT"
+    },
+    {
+      "cmc_id": 35892,
+      "name": "Tutorial",
+      "source": "Binance",
+      "pair": "TUTUSDT"
+    },
+    {
+      "cmc_id": 17520,
+      "name": "Orbler",
+      "source": "Gate.io",
+      "pair": "ORBR_USDT"
+    },
+    {
+      "cmc_id": 29335,
+      "name": "Pixels",
+      "source": "Binance",
+      "pair": "PIXELUSDT"
+    },
+    {
+      "cmc_id": 34330,
+      "name": "Freysa",
+      "source": "Gate.io",
+      "pair": "FAI_USDT"
+    },
+    {
+      "cmc_id": 35319,
+      "name": "Animecoin",
+      "source": "Binance",
+      "pair": "ANIMEUSDT"
+    },
+    {
+      "cmc_id": 30449,
+      "name": "Tensor",
+      "source": "Binance",
+      "pair": "TNSRUSDT"
+    },
+    {
+      "cmc_id": 35053,
+      "name": "pippin",
+      "source": "Gate.io",
+      "pair": "PIPPIN_USDT"
+    },
+    {
+      "cmc_id": 39903,
+      "name": "KAIO",
+      "source": "Gate.io",
+      "pair": "KAIO_USDT"
+    },
+    {
+      "cmc_id": 33439,
+      "name": "Lumia",
+      "source": "Binance",
+      "pair": "LUMIAUSDT"
+    },
+    {
+      "cmc_id": 38769,
+      "name": "Katana",
+      "source": "Binance",
+      "pair": "KATUSDT"
+    },
+    {
+      "cmc_id": 6843,
+      "name": "Radworks",
+      "source": "Binance",
+      "pair": "RADUSDT"
+    },
+    {
+      "cmc_id": 11289,
+      "name": "Spell Token",
+      "source": "Binance",
+      "pair": "SPELLUSDT"
+    },
+    {
+      "cmc_id": 38754,
+      "name": "Incentiv",
+      "source": "Gate.io",
+      "pair": "CENT_USDT"
+    },
+    {
+      "cmc_id": 42524,
+      "name": "NeoSoul",
+      "source": "Gate.io",
+      "pair": "DNA_USDT"
+    },
+    {
+      "cmc_id": 34297,
+      "name": "SynFutures",
+      "source": "Binance",
+      "pair": "FUSDT"
+    },
+    {
+      "cmc_id": 9288,
+      "name": "BENQI",
+      "source": "Binance",
+      "pair": "QIUSDT"
+    },
+    {
+      "cmc_id": 36861,
+      "name": "Newton Protocol",
+      "source": "Binance",
+      "pair": "NEWTUSDT"
+    },
+    {
+      "cmc_id": 13769,
+      "name": "World Mobile Token",
+      "source": "Gate.io",
+      "pair": "WMTX_USDT"
+    },
+    {
+      "cmc_id": 4807,
+      "name": "Shentu",
+      "source": "Binance",
+      "pair": "CTKUSDT"
+    },
+    {
+      "cmc_id": 39552,
+      "name": "Superform",
+      "source": "Gate.io",
+      "pair": "SUPERFORM_USDT"
+    },
+    {
+      "cmc_id": 4039,
+      "name": "ARPA",
+      "source": "Gate.io",
+      "pair": "ARPA_USDT"
+    },
+    {
+      "cmc_id": 38430,
+      "name": "DeAgentAI",
+      "source": "Gate.io",
+      "pair": "AIA_USDT"
+    },
+    {
+      "cmc_id": 36775,
+      "name": "MEET48",
+      "source": "Gate.io",
+      "pair": "IDOL_USDT"
+    },
+    {
+      "cmc_id": 2868,
+      "name": "Constellation",
+      "source": "Gate.io",
+      "pair": "DAG_USDT"
+    },
+    {
+      "cmc_id": 7878,
+      "name": "MobileCoin",
+      "source": "Gate.io",
+      "pair": "MOB_USDT"
+    },
+    {
+      "cmc_id": 38072,
+      "name": "iShares Core US Aggregate Bond Tokenized ETF (Ondo)",
+      "source": "Gate.io",
+      "pair": "AGGON_USDT"
+    },
+    {
+      "cmc_id": 25220,
+      "name": "HarryPotterObamaSonic10Inu (ERC-20)",
+      "source": "Gate.io",
+      "pair": "HPOS10I_USDT"
+    },
+    {
+      "cmc_id": 35747,
+      "name": "Doodles",
+      "source": "Gate.io",
+      "pair": "DOOD_USDT"
+    },
+    {
+      "cmc_id": 36369,
+      "name": "Haedal Protocol",
+      "source": "Gate.io",
+      "pair": "HAEDAL_USDT"
+    },
+    {
+      "cmc_id": 32809,
+      "name": "Orderly",
+      "source": "Gate.io",
+      "pair": "ORDER_USDT"
+    },
+    {
+      "cmc_id": 10903,
+      "name": "Coin98",
+      "source": "Binance",
+      "pair": "C98USDT"
+    },
+    {
+      "cmc_id": 39459,
+      "name": "wojak (wojakcto.com)",
+      "source": "Gate.io",
+      "pair": "WOJAK_USDT"
+    },
+    {
+      "cmc_id": 18386,
+      "name": "Faith Tribe",
+      "source": "Gate.io",
+      "pair": "FTRB_USDT"
+    },
+    {
+      "cmc_id": 38159,
+      "name": "Hemi",
+      "source": "Binance",
+      "pair": "HEMIUSDT"
+    },
+    {
+      "cmc_id": 33440,
+      "name": "Goatseus Maximus",
+      "source": "Gate.io",
+      "pair": "GOAT_USDT"
+    },
+    {
+      "cmc_id": 4038,
+      "name": "MovieBloc",
+      "source": "Binance",
+      "pair": "MBLUSDT"
+    },
+    {
+      "cmc_id": 11584,
+      "name": "Braintrust",
+      "source": "Gate.io",
+      "pair": "BTRST_USDT"
+    },
+    {
+      "cmc_id": 9285,
+      "name": "Moonriver",
+      "source": "Binance",
+      "pair": "MOVRUSDT"
+    },
+    {
+      "cmc_id": 32968,
+      "name": "AI Companions",
+      "source": "Gate.io",
+      "pair": "AIC_USDT"
+    },
+    {
+      "cmc_id": 24835,
+      "name": "PepeCoin",
+      "source": "Gate.io",
+      "pair": "PEPECOIN_USDT"
+    },
+    {
+      "cmc_id": 38117,
+      "name": "Sapien",
+      "source": "Binance",
+      "pair": "SAPIENUSDT"
+    },
+    {
+      "cmc_id": 28066,
+      "name": "Banana Gun",
+      "source": "Binance",
+      "pair": "BANANAUSDT"
+    },
+    {
+      "cmc_id": 35647,
+      "name": "Test",
+      "source": "Binance",
+      "pair": "TSTUSDT"
+    },
+    {
+      "cmc_id": 8766,
+      "name": "MyNeighborAlice",
+      "source": "Binance",
+      "pair": "ALICEUSDT"
+    },
+    {
+      "cmc_id": 32724,
+      "name": "Simon's Cat",
+      "source": "Gate.io",
+      "pair": "SIMONSCAT_USDT"
+    },
+    {
+      "cmc_id": 36180,
+      "name": "KernelDAO",
+      "source": "Binance",
+      "pair": "KERNELUSDT"
+    },
+    {
+      "cmc_id": 34792,
+      "name": "GRIFFAIN",
+      "source": "Gate.io",
+      "pair": "GRIFFAIN_USDT"
+    },
+    {
+      "cmc_id": 8534,
+      "name": "Chintai",
+      "source": "Gate.io",
+      "pair": "CHEX_USDT"
+    },
+    {
+      "cmc_id": 11396,
+      "name": "JOE",
+      "source": "Binance",
+      "pair": "JOEUSDT"
+    },
+    {
+      "cmc_id": 42347,
+      "name": "High Growth Powered by BlackRock Tokenized Assets (Ondo)",
+      "source": "Gate.io",
+      "pair": "BLKGRWON_USDT"
+    },
+    {
+      "cmc_id": 36164,
+      "name": "Corn",
+      "source": "Gate.io",
+      "pair": "CORN_USDT"
+    },
+    {
+      "cmc_id": 42348,
+      "name": "Magnificent 7 and Crypto Portfolio Tokenized Assets (Ondo)",
+      "source": "Gate.io",
+      "pair": "MAG7XON_USDT"
+    },
+    {
+      "cmc_id": 30963,
+      "name": "Zentry",
+      "source": "Gate.io",
+      "pair": "ZENT_USDT"
+    },
+    {
+      "cmc_id": 36989,
+      "name": "Coinbase tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "COINX_USDT"
+    },
+    {
+      "cmc_id": 42011,
+      "name": "Canopy",
+      "source": "Gate.io",
+      "pair": "CNPY_USDT"
+    },
+    {
+      "cmc_id": 39035,
+      "name": "zkPass",
+      "source": "Binance",
+      "pair": "ZKPUSDT"
+    },
+    {
+      "cmc_id": 38668,
+      "name": "Enso",
+      "source": "Binance",
+      "pair": "ENSOUSDT"
+    },
+    {
+      "cmc_id": 38651,
+      "name": "YieldBasis",
+      "source": "Binance",
+      "pair": "YBUSDT"
+    },
+    {
+      "cmc_id": 38065,
+      "name": "Meta Platforms Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "METAON_USDT"
+    },
+    {
+      "cmc_id": 34285,
+      "name": "tokenbot",
+      "source": "Gate.io",
+      "pair": "CLANKER_USDT"
+    },
+    {
+      "cmc_id": 40232,
+      "name": "SpaceX Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "SPCXON_USDT"
+    },
+    {
+      "cmc_id": 28846,
+      "name": "Sleepless AI",
+      "source": "Binance",
+      "pair": "AIUSDT"
+    },
+    {
+      "cmc_id": 41874,
+      "name": "Cluster Protocol",
+      "source": "Gate.io",
+      "pair": "CP_USDT"
+    },
+    {
+      "cmc_id": 40047,
+      "name": "Solstice",
+      "source": "Gate.io",
+      "pair": "SLX_USDT"
+    },
+    {
+      "cmc_id": 36994,
+      "name": "Apple tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "AAPLX_USDT"
+    },
+    {
+      "cmc_id": 39595,
+      "name": "Fabric Protocol",
+      "source": "Binance",
+      "pair": "ROBOUSDT"
+    },
+    {
+      "cmc_id": 5309,
+      "name": "OG Fan Token",
+      "source": "Binance",
+      "pair": "OGUSDT"
+    },
+    {
+      "cmc_id": 11865,
+      "name": "Bone ShibaSwap",
+      "source": "Gate.io",
+      "pair": "BONE_USDT"
+    },
+    {
+      "cmc_id": 7497,
+      "name": "Marlin",
+      "source": "Gate.io",
+      "pair": "POND_USDT"
+    },
+    {
+      "cmc_id": 38468,
+      "name": "Hana Network",
+      "source": "Gate.io",
+      "pair": "HANA_USDT"
+    },
+    {
+      "cmc_id": 33854,
+      "name": "Bertram The Pomeranian",
+      "source": "Gate.io",
+      "pair": "BERT_USDT"
+    },
+    {
+      "cmc_id": 18037,
+      "name": "Maverick Protocol",
+      "source": "Binance",
+      "pair": "MAVUSDT"
+    },
+    {
+      "cmc_id": 27054,
+      "name": "ResearchCoin",
+      "source": "Gate.io",
+      "pair": "RSC_USDT"
+    },
+    {
+      "cmc_id": 28932,
+      "name": "Dymension",
+      "source": "Binance",
+      "pair": "DYMUSDT"
+    },
+    {
+      "cmc_id": 36405,
+      "name": "Space and Time",
+      "source": "Binance",
+      "pair": "SXTUSDT"
+    },
+    {
+      "cmc_id": 29555,
+      "name": "Portal",
+      "source": "Binance",
+      "pair": "PORTALUSDT"
+    },
+    {
+      "cmc_id": 24007,
+      "name": "Delysium",
+      "source": "Gate.io",
+      "pair": "AGI_USDT"
+    },
+    {
+      "cmc_id": 35710,
+      "name": "MyShell",
+      "source": "Binance",
+      "pair": "SHELLUSDT"
+    },
+    {
+      "cmc_id": 36761,
+      "name": "EGL1",
+      "source": "Gate.io",
+      "pair": "EGL1_USDT"
+    },
+    {
+      "cmc_id": 37024,
+      "name": "Gold tokenized ETF (xStock)",
+      "source": "Gate.io",
+      "pair": "GLDX_USDT"
+    },
+    {
+      "cmc_id": 1934,
+      "name": "Loopring",
+      "source": "Gate.io",
+      "pair": "LRC_USDT"
+    },
+    {
+      "cmc_id": 39666,
+      "name": "Fluent",
+      "source": "Gate.io",
+      "pair": "BLEND_USDT"
+    },
+    {
+      "cmc_id": 37374,
+      "name": "Caldera",
+      "source": "Binance",
+      "pair": "ERAUSDT"
+    },
+    {
+      "cmc_id": 36556,
+      "name": "Hippo Protocol",
+      "source": "Gate.io",
+      "pair": "HP_USDT"
+    },
+    {
+      "cmc_id": 29879,
+      "name": "ANDY (ETH)",
+      "source": "Gate.io",
+      "pair": "ANDYETH_USDT"
+    },
+    {
+      "cmc_id": 16876,
+      "name": "Artificial Liquid Intelligence",
+      "source": "Gate.io",
+      "pair": "ALI_USDT"
+    },
+    {
+      "cmc_id": 17722,
+      "name": "Ambire Wallet",
+      "source": "Gate.io",
+      "pair": "WALLET_USDT"
+    },
+    {
+      "cmc_id": 32089,
+      "name": "Verona",
+      "source": "Gate.io",
+      "pair": "VERONA_USDT"
+    },
+    {
+      "cmc_id": 33116,
+      "name": "DeBox",
+      "source": "Gate.io",
+      "pair": "BOX_USDT"
+    },
+    {
+      "cmc_id": 38669,
+      "name": "Recall",
+      "source": "Gate.io",
+      "pair": "RECALL_USDT"
+    },
+    {
+      "cmc_id": 22850,
+      "name": "Hivemapper",
+      "source": "Gate.io",
+      "pair": "HONEY_USDT"
+    },
+    {
+      "cmc_id": 37055,
+      "name": "Meta tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "METAX_USDT"
+    },
+    {
+      "cmc_id": 38717,
+      "name": "Bluwhale",
+      "source": "Gate.io",
+      "pair": "BLUAI_USDT"
+    },
+    {
+      "cmc_id": 5026,
+      "name": "Orchid",
+      "source": "Gate.io",
+      "pair": "OXT_USDT"
+    },
+    {
+      "cmc_id": 38506,
+      "name": "Bitlight",
+      "source": "Gate.io",
+      "pair": "LIGHT_USDT"
+    },
+    {
+      "cmc_id": 6836,
+      "name": "Moonbeam",
+      "source": "Binance",
+      "pair": "GLMRUSDT"
+    },
+    {
+      "cmc_id": 35929,
+      "name": "Dolomite",
+      "source": "Binance",
+      "pair": "DOLOUSDT"
+    },
+    {
+      "cmc_id": 38037,
+      "name": "Apple Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "AAPLON_USDT"
+    },
+    {
+      "cmc_id": 35728,
+      "name": "DIAM",
+      "source": "Gate.io",
+      "pair": "DIAM_USDT"
+    },
+    {
+      "cmc_id": 29150,
+      "name": "Ponke",
+      "source": "Gate.io",
+      "pair": "PONKE_USDT"
+    },
+    {
+      "cmc_id": 7617,
+      "name": "saffron.finance",
+      "source": "Gate.io",
+      "pair": "SAFFRONFI_USDT"
+    },
+    {
+      "cmc_id": 11294,
+      "name": "SuperRare",
+      "source": "Binance",
+      "pair": "RAREUSDT"
+    },
+    {
+      "cmc_id": 32376,
+      "name": "Avail",
+      "source": "Gate.io",
+      "pair": "AVAIL_USDT"
+    },
+    {
+      "cmc_id": 21914,
+      "name": "SaucerSwap",
+      "source": "Gate.io",
+      "pair": "SAUCE_USDT"
+    },
+    {
+      "cmc_id": 28220,
+      "name": "Soil",
+      "source": "Gate.io",
+      "pair": "SOIL_USDT"
+    },
+    {
+      "cmc_id": 36153,
+      "name": "Mind Network",
+      "source": "Gate.io",
+      "pair": "FHE_USDT"
+    },
+    {
+      "cmc_id": 37609,
+      "name": "INFINIT",
+      "source": "Gate.io",
+      "pair": "IN_USDT"
+    },
+    {
+      "cmc_id": 34125,
+      "name": "Just a chill guy",
+      "source": "Gate.io",
+      "pair": "CHILLGUY_USDT"
+    },
+    {
+      "cmc_id": 38086,
+      "name": "Microsoft Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "MSFTON_USDT"
+    },
+    {
+      "cmc_id": 37041,
+      "name": "Robinhood tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "HOODX_USDT"
+    },
+    {
+      "cmc_id": 30746,
+      "name": "BounceBit",
+      "source": "Binance",
+      "pair": "BBUSDT"
+    },
+    {
+      "cmc_id": 14556,
+      "name": "Boba Network",
+      "source": "Gate.io",
+      "pair": "BOBA_USDT"
+    },
+    {
+      "cmc_id": 37014,
+      "name": "Amazon tokenized stock (xStock)",
+      "source": "Gate.io",
+      "pair": "AMZNX_USDT"
+    },
+    {
+      "cmc_id": 38863,
+      "name": "Intuition",
+      "source": "Gate.io",
+      "pair": "TRUST_USDT"
+    },
+    {
+      "cmc_id": 39322,
+      "name": "我踏马来了",
+      "source": "Gate.io",
+      "pair": "我踏马来了_USDT"
+    },
+    {
+      "cmc_id": 36223,
+      "name": "Wayfinder",
+      "source": "Gate.io",
+      "pair": "PROMPT_USDT"
+    },
+    {
+      "cmc_id": 10442,
+      "name": "Decentralized Social",
+      "source": "Gate.io",
+      "pair": "DESO_USDT"
+    },
+    {
+      "cmc_id": 39461,
+      "name": "Infinex",
+      "source": "Gate.io",
+      "pair": "INX_USDT"
+    },
+    {
+      "cmc_id": 36227,
+      "name": "NUMINE",
+      "source": "Gate.io",
+      "pair": "NUMI_USDT"
+    },
+    {
+      "cmc_id": 38027,
+      "name": "AMD Tokenized Stock (Ondo)",
+      "source": "Gate.io",
+      "pair": "AMDON_USDT"
+    },
+    {
+      "cmc_id": 32195,
+      "name": "Hamster Kombat",
+      "source": "Binance",
+      "pair": "HMSTRUSDT"
+    },
+    {
+      "cmc_id": 13663,
+      "name": "Gains Network",
+      "source": "Binance",
+      "pair": "GNSUSDT"
+    }
+  ],
+  "excluded_cmc_ids": [
+    825,
+    328,
+    4943,
+    37263,
+    35721,
+    11092,
+    39683,
+    2087,
+    37745,
+    35697,
+    29270,
+    28853,
+    40671,
+    20279,
+    41876,
+    32307,
+    7950,
+    29862,
+    38562,
+    20641,
+    39686,
+    29960,
+    42642,
+    6952,
+    36743,
+    7184,
+    38948,
+    32796,
+    1720,
+    40217,
+    34261,
+    2416,
+    32864,
+    40213,
+    2499,
+    4041,
+    39711,
+    39070,
+    2941,
+    25194,
+    4006,
+    2394,
+    36195,
+    36902,
+    15271,
+    40531,
+    28656,
+    40536,
+    40593,
+    36039,
+    33391,
+    40216,
+    30933,
+    38151,
+    39682,
+    38273,
+    32782,
+    38947,
+    38185,
+    20964,
+    38942,
+    40558,
+    21330,
+    36769,
+    40793,
+    34212,
+    40643,
+    38186,
+    36302,
+    40212,
+    4948,
+    36912,
+    39549,
+    38051,
+    39592,
+    7959,
+    34332,
+    4691,
+    28688,
+    38909,
+    40540,
+    7653,
+    39923,
+    41012,
+    39970,
+    39955,
+    37070,
+    38178,
+    39415,
+    24877,
+    10894,
+    39172,
+    29743,
+    10312,
+    39965,
+    40215,
+    38864,
+    4950,
+    31379,
+    41010,
+    42398,
+    28735,
+    35976,
+    42290,
+    16690,
+    38407,
+    41050,
+    38767,
+    5275,
+    11171,
+    36066,
+    38417,
+    40794,
+    38014,
+    10854,
+    3306,
+    4056,
+    4687,
+    19843,
+    36896,
+    32372,
+    36901,
+    39922,
+    8049,
+    40946,
+    38034,
+    36552,
+    3893,
+    38545,
+    36310,
+    5947,
+    42040,
+    40813,
+    39856,
+    36511,
+    4064,
+    3855,
+    2273,
+    22933,
+    41773,
+    38935,
+    40814,
+    9566,
+    38889,
+    40588,
+    39394,
+    9220,
+    40659,
+    36056,
+    38433,
+    36893,
+    38136,
+    1320,
+    40953,
+    35637,
+    36904,
+    40214,
+    6953,
+    42525,
+    40037,
+    8083,
+    40175,
+    30460,
+    29318,
+    38966,
+    18069,
+    3,
+    34143,
+    22264,
+    38569,
+    39689,
+    40798,
+    28194,
+    42594,
+    35426,
+    38307,
+    41925,
+    39918,
+    40694,
+    40789,
+    40790,
+    11223,
+    35877,
+    40685,
+    2933,
+    40845,
+    42401,
+    41911,
+    20245,
+    13524,
+    32232,
+    34103,
+    28458,
+    2303,
+    1883,
+    28654,
+    38167,
+    33152,
+    30651,
+    37082,
+    25232,
+    32037,
+    40668,
+    40881,
+    5067,
+    38219,
+    41983,
+    1414,
+    7424,
+    37534,
+    36354,
+    38035,
+    36892,
+    36762,
+    5435,
+    38634,
+    22059,
+    38869,
+    14721,
+    37028,
+    15736,
+    40648,
+    25241,
+    39545,
+    20561,
+    37393,
+    38829,
+    40797,
+    36621,
+    33964,
+    18934,
+    40635,
+    42338,
+    24190,
+    39203,
+    3418,
+    38089,
+    34269,
+    6731,
+    38838,
+    8771,
+    5450,
+    40884,
+    38003,
+    8489,
+    39170,
+    39283,
+    40876,
+    39812,
+    32068,
+    21988,
+    27533,
+    29042,
+    40786,
+    42599,
+    38963,
+    38557,
+    37320,
+    39910,
+    8670,
+    2222,
+    1789,
+    40238,
+    35793,
+    8938,
+    35837,
+    39192,
+    40147,
+    40538,
+    38169,
+    12814,
+    39247,
+    5380,
+    38007,
+    38068,
+    132,
+    2099,
+    16807,
+    29933,
+    40539,
+    37180,
+    41902,
+    36215,
+    41909,
+    28919,
+    2606,
+    36874,
+    7463,
+    4166,
+    40632,
+    40964,
+    40708,
+    4953,
+    28446,
+    40958,
+    2001,
+    29920,
+    38970,
+    6929,
+    10631,
+    3441,
+    4758,
+    35372,
+    40880,
+    17960,
+    39306,
+    40849,
+    16334,
+    39974,
+    39355,
+    36962,
+    40846,
+    3637,
+    5,
+    40965,
+    38099,
+    40936,
+    33537,
+    38022,
+    23780,
+    34109,
+    35597,
+    42593,
+    36903,
+    5956,
+    20490
+  ]
+}

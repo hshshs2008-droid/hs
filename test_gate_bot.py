@@ -105,7 +105,7 @@ class GateBotTests(unittest.TestCase):
     def test_start_explains_gate_only_policy_when_enabled(self, api):
         update = {'message': {'text': '/start', 'chat': {'id': 100, 'type': 'private'}, 'from': {'id': 100}}}
         bot.handle_update('test-token', update, self.main, gate_store=self.gate)
-        self.assertIn('Gate.io Spot غير الموجودة', api.call_args.args[2]['text'])
+        self.assertIn('القائمة المعتمدة من CoinMarketCap', api.call_args.args[2]['text'])
 
     @patch.dict(os.environ, {'TELEGRAM_BOT_TOKEN': 'test-token', 'GATE_SPOT_ENABLED': 'invalid'}, clear=True)
     @patch('bot.api')
@@ -116,7 +116,8 @@ class GateBotTests(unittest.TestCase):
                 self.assertEqual(bot.main(), 1)
         worker.assert_not_called()
 
-    def test_opt_in_main_wires_independent_gate_workers_and_qualified_reports(self):
+    @patch("approved_universe.configure_store")
+    def test_opt_in_main_wires_independent_gate_workers_and_qualified_reports(self, configure):
         main, gate = Mock(), Mock()
         main.admin_id = 100
         main.is_admin.return_value = True
