@@ -20,6 +20,27 @@ class OffsetStore:
 
 class BotTests(unittest.TestCase):
     @patch("bot.api")
+    def test_platform_link_opens_correct_tradingview_exchange_and_timeframe(self, api):
+        from urllib.parse import urlparse, parse_qs
+        for symbol, label, expected in [("BNKR_USDT", "Gate.io Spot", "GATEIO:BNKRUSDT"),
+                                         ("BTCUSDT", "Binance Spot", "BINANCE:BTCUSDT")]:
+            with self.subTest(symbol=symbol):
+                client = Mock()
+                client.latest_price.return_value = "1.25"
+                bot.send_alert_message("test-token", client, 42,
+                                       f"📈 {symbol}\n🏷️ {label}\n⏱️ 4h • شموع مغلقة")
+                payload = api.call_args.args[2]
+                entity = payload['entities'][0]
+                encoded = payload['text'].encode('utf-16-le')
+                linked = encoded[entity['offset']*2:(entity['offset']+entity['length'])*2].decode('utf-16-le')
+                self.assertEqual(linked, label)
+                self.assertEqual(parse_qs(urlparse(entity['url']).query),
+                                 {'symbol': [expected], 'interval': ['240']})
+                self.assertTrue(payload['link_preview_options']['is_disabled'])
+                self.assertNotIn('parse_mode', payload)
+                client.latest_price.assert_called_once_with(symbol)
+
+    @patch("bot.api")
     def test_gate_display_keeps_native_pair_for_price_and_ledger(self, api):
         client = Mock()
         client.latest_price.return_value = "0.0002823"

@@ -11,6 +11,7 @@ from datetime import datetime
 from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import urlencode
 
 from market import MarketError
 
@@ -127,6 +128,26 @@ def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_
     if store is not None and (symbol is None or signal_close_time is None or parse_mode is not None):
         raise ValueError("Durable live delivery requires explicit signal identity.")
     payload = {"chat_id": chat_id, "text": text}
+    if symbol is not None and parse_mode is None:
+        for label, exchange in (("Binance Spot", "BINANCE"), ("Gate.io Spot", "GATEIO")):
+            platform_line = "🏷️ " + label
+            marker = "\n" + platform_line
+            position = text.find(marker)
+            if position < 0:
+                continue
+            start = position + len("\n🏷️ ")
+            end = start + len(label)
+            if end < len(text) and text[end] != "\n":
+                continue
+            ticker = symbol[:-5] + "USDT" if symbol.endswith("_USDT") else symbol
+            url = "https://www.tradingview.com/chart/?" + urlencode({
+                "symbol": exchange + ":" + ticker, "interval": "240"})
+            payload["entities"] = [{"type": "text_link",
+                                    "offset": len(text[:start].encode("utf-16-le")) // 2,
+                                    "length": len(label.encode("utf-16-le")) // 2,
+                                    "url": url}]
+            payload["link_preview_options"] = {"is_disabled": True}
+            break
     if parse_mode is not None:
         payload["parse_mode"] = parse_mode
         payload["link_preview_options"] = {"is_disabled": True}
