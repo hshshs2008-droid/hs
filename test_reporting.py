@@ -38,6 +38,22 @@ def cells(document, sheet='sheet1'):
 
 
 class WorkbookTests(unittest.TestCase):
+    def test_percentage_cells_have_explicit_rgb_fonts(self):
+        for price, expected in [('125', 'FF006100'), ('90', 'FF9C0006'), ('100', None)]:
+            with self.subTest(price=price):
+                data = build_report([row()], {'BTCUSDT': {'price': price, 'at_ms': NOW}}, NOW)
+                with ZipFile(BytesIO(data)) as archive:
+                    sheet = ET.fromstring(archive.read('xl/worksheets/sheet1.xml'))
+                    styles = ET.fromstring(archive.read('xl/styles.xml'))
+                cell = sheet.find(".//s:c[@r='H2']", NS)
+                xf = styles.find('s:cellXfs', NS)[int(cell.get('s'))]
+                font = styles.find('s:fonts', NS)[int(xf.get('fontId'))]
+                color = font.find('s:color', NS)
+                self.assertEqual(color.get('rgb') if color is not None else None, expected)
+                if expected:
+                    self.assertEqual(xf.get('applyFont'), '1')
+                self.assertIsNotNone(cell.find('s:v', NS))
+
     def test_zip_workbook_is_well_formed_and_has_numeric_prices_and_changes(self):
         data = build_report([row()], {'BTCUSDT': {'price': '125', 'at_ms': NOW+2000}}, NOW+3000, NOW)
         with ZipFile(BytesIO(data)) as archive:

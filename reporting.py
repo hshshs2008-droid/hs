@@ -125,9 +125,9 @@ def _styles():
     root = ET.Element(_tag('styleSheet'))
     formats = ET.SubElement(root, _tag('numFmts'), count='2')
     ET.SubElement(formats, _tag('numFmt'), numFmtId='164', formatCode='0.########################################')
-    # Excel palette Color10 is dark green (#008000); named Green is bright lime.
-    ET.SubElement(formats, _tag('numFmt'), numFmtId='165', formatCode='[Color10]+0.00%;[Red]-0.00%;0.00%')
-    fonts = ET.SubElement(root, _tag('fonts'), count='2')
+    # Explicit RGB fonts below work independently of Excel indexed palettes.
+    ET.SubElement(formats, _tag('numFmt'), numFmtId='165', formatCode='+0.00%;-0.00%;0.00%')
+    fonts = ET.SubElement(root, _tag('fonts'), count='4')
     for bold in (False, True):
         font = ET.SubElement(fonts, _tag('font'))
         ET.SubElement(font, _tag('sz'), val='11')
@@ -135,6 +135,11 @@ def _styles():
         if bold:
             ET.SubElement(font, _tag('b'))
             ET.SubElement(font, _tag('color'), rgb='FFFFFFFF')
+    for color in ('FF006100', 'FF9C0006'):
+        font = ET.SubElement(fonts, _tag('font'))
+        ET.SubElement(font, _tag('sz'), val='11')
+        ET.SubElement(font, _tag('name'), val='Calibri')
+        ET.SubElement(font, _tag('color'), rgb=color)
     fills = ET.SubElement(root, _tag('fills'), count='3')
     ET.SubElement(ET.SubElement(fills, _tag('fill')), _tag('patternFill'), patternType='none')
     ET.SubElement(ET.SubElement(fills, _tag('fill')), _tag('patternFill'), patternType='gray125')
@@ -147,13 +152,15 @@ def _styles():
         ET.SubElement(border, _tag(side))
     style_xfs = ET.SubElement(root, _tag('cellStyleXfs'), count='1')
     ET.SubElement(style_xfs, _tag('xf'), numFmtId='0', fontId='0', fillId='0', borderId='0')
-    xfs = ET.SubElement(root, _tag('cellXfs'), count='4')
-    for style in range(4):
-        attributes = {'numFmtId': ('164' if style == 2 else '165' if style == 3 else '0'),
-                      'fontId': '1' if style == 1 else '0', 'fillId': '2' if style == 1 else '0',
+    xfs = ET.SubElement(root, _tag('cellXfs'), count='6')
+    for style in range(6):
+        attributes = {'numFmtId': ('164' if style == 2 else '165' if style >= 3 else '0'),
+                      'fontId': '2' if style == 4 else '3' if style == 5 else '1' if style == 1 else '0', 'fillId': '2' if style == 1 else '0',
                       'borderId': '0', 'xfId': '0', 'applyAlignment': '1'}
-        if style in (2, 3):
+        if style >= 2:
             attributes['applyNumberFormat'] = '1'
+        if style in (4, 5):
+            attributes['applyFont'] = '1'
         xf = ET.SubElement(xfs, _tag('xf'), attributes)
         ET.SubElement(xf, _tag('alignment'), horizontal='center', vertical='center', wrapText='1')
     styles = ET.SubElement(root, _tag('cellStyles'), count='1')
@@ -190,7 +197,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
             with localcontext() as context:
                 context.prec = 80
                 change = current / entry - 1
-            values.append((change, 3, True))
+            values.append((change, 4 if change > 0 else 5 if change < 0 else 3, True))
         else:
             values.append(('غير محسوب', 0, False))
         main.append(values)
