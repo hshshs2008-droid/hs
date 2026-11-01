@@ -184,7 +184,10 @@ class EntrySignalTests(unittest.TestCase):
         self.assertEqual(signal, indicators.Signal(
             close_time=2999, rsi_previous=31, rsi_current=32,
             k_previous=10, k_current=19, d_previous=15, d_current=18,
-            rsi_event_close_time=1999, stoch_event_close_time=2999))
+            rsi_event_close_time=1999, stoch_event_close_time=2999,
+            rsi_event_previous=29, rsi_event_current=31,
+            k_event_previous=10, k_event_current=19,
+            d_event_previous=15, d_event_current=18))
 
     def test_incomplete_history_has_no_signal(self):
         self.assertIsNone(indicators.entry_signal([]))

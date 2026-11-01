@@ -35,6 +35,17 @@ def _close_label(close_time):
     return datetime.fromtimestamp((close_time + 1) / 1000, DISPLAY_TZ).strftime("%Y-%m-%d (%H:%M)")
 
 
+def _event_time_label(event_time, close_time):
+    event = datetime.fromtimestamp((event_time + 1) / 1000, DISPLAY_TZ)
+    completion = datetime.fromtimestamp((close_time + 1) / 1000, DISPLAY_TZ)
+    label = event.strftime("(%H:%M)")
+    # A time-only label must not imply that yesterday's event happened today.
+    if event.date() < completion.date():
+        days = (completion.date() - event.date()).days
+        label += " — اليوم السابق" if days == 1 else f" — قبل {days} أيام"
+    return label
+
+
 def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_close_time):
     """Refresh queued messages without rewriting stored indicators or events."""
     timestamps = (
@@ -57,7 +68,9 @@ def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_
             line = "📈 " + line.removeprefix("🔔 ")
         for prefix, label, icon, timestamp in timestamps:
             if line.startswith((prefix, icon + prefix, label, icon + label)):
-                line = icon + label + _close_label(timestamp)
+                rendered = (_close_label(timestamp) if icon == "🕒 "
+                            else _event_time_label(timestamp, close_time))
+                line = icon + label + rendered
                 break
         for prefix, icon in styles.items():
             if line.startswith(prefix):
@@ -68,6 +81,10 @@ def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_
 
 
 def format_alert(symbol, signal, *, exchange_name="Binance Spot"):
+    def event_value(indicator, side):
+        value = getattr(signal, f"{indicator}_event_{side}", None)
+        return value if value is not None else getattr(signal, f"{indicator}_{side}")
+
     timing = "الشرطان في الشمعة نفسها."
     if signal.rsi_event_close_time != signal.stoch_event_close_time:
         timing = "الشرطان في شمعتين متتاليتين."
@@ -76,12 +93,11 @@ def format_alert(symbol, signal, *, exchange_name="Binance Spot"):
         f"🏷️ {exchange_name}\n"
         "⏱️ 4h • شموع مغلقة\n"
         f"إغلاق شمعة 4h: {_close_label(signal.close_time)}\n"
-        f"قيم آخر إغلاق:\n"
-        f"RSI (14): {signal.rsi_previous:.2f} → {signal.rsi_current:.2f}\n"
-        f"K: {signal.k_previous:.2f} → {signal.k_current:.2f}\n"
-        f"D: {signal.d_previous:.2f} → {signal.d_current:.2f}\n"
-        f"عبور RSI فوق 30: {_close_label(signal.rsi_event_close_time)}\n"
-        f"تقاطع K فوق D: {_close_label(signal.stoch_event_close_time)}\n"
+        f"RSI (14): {event_value('rsi', 'previous'):.2f} → {event_value('rsi', 'current'):.2f}\n"
+        f"K: {event_value('k', 'previous'):.2f} → {event_value('k', 'current'):.2f}\n"
+        f"D: {event_value('d', 'previous'):.2f} → {event_value('d', 'current'):.2f}\n"
+        f"عبور RSI فوق 30: {_event_time_label(signal.rsi_event_close_time, signal.close_time)}\n"
+        f"تقاطع K فوق D: {_event_time_label(signal.stoch_event_close_time, signal.close_time)}\n"
         f"{timing}"
     )
     return _refresh_alert_times(message, signal.close_time,

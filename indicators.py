@@ -167,13 +167,22 @@ class Signal:
     d_current: float
     rsi_event_close_time: int
     stoch_event_close_time: int
+    # Display evidence for each event. Optional for older cached Signal records;
+    # the existing fields above keep describing the completion candle pair.
+    rsi_event_previous: float | None = None
+    rsi_event_current: float | None = None
+    k_event_previous: float | None = None
+    k_event_current: float | None = None
+    d_event_previous: float | None = None
+    d_event_current: float | None = None
 
 
 def entry_signal(candles):
     """Evaluate completed, chronological candles using the approved filter.
 
     Event times may refer to the preceding candle. The previous/current
-    indicator fields always describe the newest two completed candles.
+    indicator fields always describe the newest two completed candles. Separate
+    event fields provide display evidence without changing event matching.
     """
     candles = list(candles)
     if len(candles) < 2:
@@ -208,4 +217,10 @@ def entry_signal(candles):
         d_previous=ds[-2], d_current=ds[-1],
         rsi_event_close_time=candles[events[0]].close_time,
         stoch_event_close_time=candles[events[1]].close_time,
+        rsi_event_previous=rsis[events[0] - 1],
+        rsi_event_current=rsis[events[0]],
+        k_event_previous=ks[events[1] - 1],
+        k_event_current=ks[events[1]],
+        d_event_previous=ds[events[1] - 1],
+        d_event_current=ds[events[1]],
     )
