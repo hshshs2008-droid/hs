@@ -49,12 +49,12 @@ def _event_time_label(event_time, close_time):
 def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_close_time):
     """Refresh queued messages without rewriting stored indicators or events."""
     timestamps = (
-        ("إغلاق الإشارة: ", "إغلاق شمعة 4h: ", "🕒 ", close_time),
-        ("عبور RSI فوق 20: ", "عبور RSI فوق 20: ", "↗️ ", rsi_event_close_time),
-        ("عبور RSI فوق 30: ", "عبور RSI فوق 30: ", "↗️ ", rsi_event_close_time),
-        ("تقاطع K فوق D: ", "تقاطع K فوق D: ", "🔀 ", stoch_event_close_time),
+        (("إغلاق الإشارة: ", "إغلاق شمعة 4h: "), "4H إغلاق الشمعة: ", "🕒 ", close_time),
+        (("عبور RSI فوق 20: ",), "RSI عبور فوق الـ20: ", "↗️ ", rsi_event_close_time),
+        (("عبور RSI فوق 30: ",), "RSI عبور فوق الـ30: ", "↗️ ", rsi_event_close_time),
+        (("تقاطع K فوق D: ",), "K فوق D تقاطع في ", "🔀 ", stoch_event_close_time),
     )
-    styles = {"RSI (14): ": "📊 ", "K: ": "🔹 ", "D: ": "🔸 ", "الشرطان ": "🔗 "}
+    styles = {"RSI (14): ": "📊 ", "K: ": "🔹 ", "D: ": "🔸 "}
     lines = []
     for line in message.splitlines():
         if line == "قيم آخر إغلاق:":
@@ -66,8 +66,10 @@ def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_
             line = "📈 " + line.removeprefix("🔔 تحقق فلتر الدخول: ")
         elif line.startswith("🔔 "):
             line = "📈 " + line.removeprefix("🔔 ")
-        for prefix, label, icon, timestamp in timestamps:
-            if line.startswith((prefix, icon + prefix, label, icon + label)):
+        for aliases, label, icon, timestamp in timestamps:
+            prefixes = tuple(prefix for alias in (*aliases, label)
+                             for prefix in (alias, icon + alias))
+            if line.startswith(prefixes):
                 rendered = (_close_label(timestamp) if icon == "🕒 "
                             else _event_time_label(timestamp, close_time))
                 line = icon + label + rendered
@@ -76,6 +78,8 @@ def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_
             if line.startswith(prefix):
                 line = icon + line
                 break
+        if line.startswith(("الشرطان ", "🔗 الشرطان ")):
+            line = line.removeprefix("🔗 ").removesuffix(" 🔗") + " 🔗"
         lines.append(line)
     return "\n".join(lines)
 
@@ -92,12 +96,12 @@ def format_alert(symbol, signal, *, exchange_name="Binance Spot"):
         f"📈 {symbol}\n"
         f"🏷️ {exchange_name}\n"
         "⏱️ 4h • شموع مغلقة\n"
-        f"إغلاق شمعة 4h: {_close_label(signal.close_time)}\n"
+        f"4H إغلاق الشمعة: {_close_label(signal.close_time)}\n"
         f"RSI (14): {event_value('rsi', 'previous'):.2f} → {event_value('rsi', 'current'):.2f}\n"
         f"K: {event_value('k', 'previous'):.2f} → {event_value('k', 'current'):.2f}\n"
         f"D: {event_value('d', 'previous'):.2f} → {event_value('d', 'current'):.2f}\n"
-        f"عبور RSI فوق 30: {_event_time_label(signal.rsi_event_close_time, signal.close_time)}\n"
-        f"تقاطع K فوق D: {_event_time_label(signal.stoch_event_close_time, signal.close_time)}\n"
+        f"RSI عبور فوق الـ30: {_event_time_label(signal.rsi_event_close_time, signal.close_time)}\n"
+        f"K فوق D تقاطع في {_event_time_label(signal.stoch_event_close_time, signal.close_time)}\n"
         f"{timing}"
     )
     return _refresh_alert_times(message, signal.close_time,

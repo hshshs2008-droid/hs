@@ -36,6 +36,11 @@ class EventDisplayTests(unittest.TestCase):
             for side in ('previous', 'current'):
                 self.assertEqual(getattr(signal, f'{prefix}_event_{side}'),
                                  getattr(signal, f'{prefix}_{side}'))
+        message = format_alert('BTCUSDT', signal)
+        self.assertEqual(message.splitlines()[-1], 'الشرطان في الشمعة نفسها. 🔗')
+        self.assertIn('🕒 4H إغلاق الشمعة: 2026-11-01 (10:00)', message)
+        self.assertIn('↗️ RSI عبور فوق الـ30: (10:00)', message)
+        self.assertIn('🔀 K فوق D تقاطع في (10:00)', message)
 
     def test_rsi_first_shows_crossing_instead_of_flat_latest_values(self):
         signal, candles = evaluate([28.85, 34.67, 34.67], [7.82, 9.95, 17.98], [14.07, 10.40, 11.91])
@@ -48,11 +53,11 @@ class EventDisplayTests(unittest.TestCase):
         self.assertIn('🔹 K: 9.95 → 17.98', message)
         self.assertIn('🔸 D: 10.40 → 11.91', message)
         self.assertNotIn('RSI (14): 34.67 → 34.67', message)
-        self.assertIn('↗️ عبور RSI فوق 30: (06:00)', message)
-        self.assertIn('🔀 تقاطع K فوق D: (10:00)', message)
+        self.assertIn('↗️ RSI عبور فوق الـ30: (06:00)', message)
+        self.assertIn('🔀 K فوق D تقاطع في (10:00)', message)
         self.assertEqual(re.findall(r'\d{4}-\d{2}-\d{2}', message), ['2026-11-01'])
-        self.assertIn('🕒 إغلاق شمعة 4h: 2026-11-01 (10:00)', message)
-        self.assertIn('الشرطان في شمعتين متتاليتين.', message)
+        self.assertIn('🕒 4H إغلاق الشمعة: 2026-11-01 (10:00)', message)
+        self.assertEqual(message.splitlines()[-1], 'الشرطان في شمعتين متتاليتين. 🔗')
 
     def test_stochastic_first_shows_under_twenty_crossing(self):
         signal, candles = evaluate([28, 29, 35], [8, 15, 26], [10, 13, 18])
@@ -66,14 +71,14 @@ class EventDisplayTests(unittest.TestCase):
         self.assertIn('📊 RSI (14): 29.00 → 35.00', message)
         self.assertIn('🔹 K: 8.00 → 15.00', message)
         self.assertIn('🔸 D: 10.00 → 13.00', message)
-        self.assertIn('↗️ عبور RSI فوق 30: (10:00)', message)
-        self.assertIn('🔀 تقاطع K فوق D: (06:00)', message)
+        self.assertIn('↗️ RSI عبور فوق الـ30: (10:00)', message)
+        self.assertIn('🔀 K فوق D تقاطع في (06:00)', message)
 
     def test_previous_day_event_is_identified_without_repeating_date(self):
         signal, _ = evaluate([28.85, 34.67, 34.67], [7.82, 9.95, 17.98], [14.07, 10.40, 11.91], hour=2)
         message = format_alert('DKA_USDT', signal, exchange_name='Gate.io Spot')
-        self.assertIn('🕒 إغلاق شمعة 4h: 2026-11-01 (02:00)', message)
-        event_line = next(line for line in message.splitlines() if 'عبور RSI' in line)
+        self.assertIn('🕒 4H إغلاق الشمعة: 2026-11-01 (02:00)', message)
+        event_line = next(line for line in message.splitlines() if 'RSI عبور' in line)
         self.assertIn('(22:00)', event_line)
         self.assertIn('اليوم السابق', event_line)
         self.assertEqual(re.findall(r'\d{4}-\d{2}-\d{2}', message), ['2026-11-01'])
@@ -92,6 +97,12 @@ class EventDisplayTests(unittest.TestCase):
                                          signal.rsi_event_close_time, signal.stoch_event_close_time)
         self.assertEqual(message, refreshed)
         self.assertEqual(store.pending()[0][3], message)
+        legacy_icon = message.replace('الشرطان في شمعتين متتاليتين. 🔗',
+                                      '🔗 الشرطان في شمعتين متتاليتين.')
+        self.assertEqual(_refresh_alert_times(legacy_icon, signal.close_time,
+                                             signal.rsi_event_close_time, signal.stoch_event_close_time),
+                         message)
+        self.assertEqual(message.count('🔗'), 1)
 
     def test_legacy_signal_without_event_values_still_deserializes(self):
         old = dict(close_time=1000, rsi_previous=29, rsi_current=31,

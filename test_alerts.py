@@ -341,17 +341,17 @@ class ScannerTests(unittest.TestCase):
             with self.subTest(utc_time=utc_time):
                 close_time = int(datetime.fromisoformat(utc_time).timestamp() * 1000) - 1
                 text = format_alert("BTCUSDT", signal_at(close_time))
-                self.assertIn(f"🕒 إغلاق شمعة 4h: {expected}", text.splitlines())
+                self.assertIn(f"🕒 4H إغلاق الشمعة: {expected}", text.splitlines())
                 event_time = expected.split(" ", 1)[1]
-                self.assertIn(f"عبور RSI فوق 30: {event_time}", text)
-                self.assertIn(f"تقاطع K فوق D: {event_time}", text)
+                self.assertIn(f"RSI عبور فوق الـ30: {event_time}", text)
+                self.assertIn(f"K فوق D تقاطع في {event_time}", text)
                 self.assertEqual(text.count(expected.split(" ", 1)[0]), 1)
 
     def test_legacy_queued_message_times_are_refreshed_without_database_mutation(self):
         close_time = int(datetime.fromisoformat("2026-01-15T12:00:00+00:00").timestamp() * 1000) - 1
         self.store.subscribe(1, 0)
         self.store.record("BTCUSDT", close_time, signal_at(close_time))
-        expected = format_alert("BTCUSDT", signal_at(close_time)).replace("عبور RSI فوق 30:", "عبور RSI فوق 20:")
+        expected = format_alert("BTCUSDT", signal_at(close_time)).replace("RSI عبور فوق الـ30:", "RSI عبور فوق الـ20:")
         legacy = (
             "🔔 تحقق فلتر الدخول: BTCUSDT\n"
             "بايننس سبوت • فريم 4 ساعات • شموع مغلقة\n"
