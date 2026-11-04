@@ -155,6 +155,10 @@ def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_
         before_send()
     attempt_id = None
     if store is not None:
+        note = store.repeat_alert_note(chat_id, symbol, signal_close_time, int(time.time() * 1000))
+        if isinstance(note, str) and note:
+            text += "\n" + note
+            payload["text"] = text
         attempt_id = store.prepare_delivery(chat_id, symbol, signal_close_time, price, quote_at_ms,
                                             text, int(time.time() * 1000))
     try:

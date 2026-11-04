@@ -305,6 +305,30 @@ class AlertStore:
                 WHERE attempt_id = ? AND status IN ('prepared', 'uncertain')
             """, ('uncertain' if uncertain else 'failed', failure_status, attempt_id))
 
+    def repeat_alert_note(self, chat_id, symbol, close_time, now_ms):
+        """Count distinct confirmed recommendations for this recipient, not retries."""
+        week = 7 * 24 * 60 * 60 * 1000
+        with self._lock:
+            rows = self._db.execute("""
+                SELECT MIN(COALESCE(telegram_sent_at_ms, confirmed_at_ms)) AS first_sent
+                FROM delivery_ledger
+                WHERE chat_id = ? AND symbol = ? AND status = 'sent'
+                  AND signal_close_time != ?
+                GROUP BY signal_close_time
+                HAVING first_sent >= ? AND first_sent <= ?
+            """, (chat_id, symbol, close_time, now_ms - week, now_ms)).fetchall()
+        if not rows:
+            return ""
+        elapsed = max(0, now_ms - max(row[0] for row in rows)) // 1000
+        if elapsed >= 86400:
+            amount, unit = elapsed // 86400, "day"
+        elif elapsed >= 3600:
+            amount, unit = elapsed // 3600, "hour"
+        else:
+            amount, unit = elapsed // 60, "minute"
+        age = "less than a minute ago" if amount == 0 else f"{amount} {unit}{'s' if amount != 1 else ''} ago"
+        return f"Last alert: {age} ({len(rows) + 1}/7D) 🔁"
+
     def report_rows(self, chat_id):
         """Return the first confirmed message for each signal for one recipient."""
         if type(chat_id) is not int or not 0 < chat_id < 2**52:
