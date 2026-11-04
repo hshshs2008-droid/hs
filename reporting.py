@@ -19,7 +19,7 @@ REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 PACKAGE_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
 CONTENT_NS = 'http://schemas.openxmlformats.org/package/2006/content-types'
 HEADERS = ('مسلسل', 'العملة', 'المنصة', 'تاريخ التوصية', 'وقت التوصية',
-           'السعر وقت الإشارة (عند الإرسال) USDT', 'السعر الحالي USDT', 'التغير %')
+           'السعر وقت الإشارة (عند الإرسال) USDT', 'السعر الحالي USDT', 'التغير %', 'الفريم')
 REPORT_ERROR = 'تعذر تجهيز تقرير Excel الآن؛ أعد /report لاحقاً.'
 MAX_DOCUMENT_BYTES = 45 * 1024 * 1024
 
@@ -169,7 +169,7 @@ def _styles():
 
 
 def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
-    """Create a private eight-column report of confirmed sends, not filter scans.
+    """Create a private nine-column report of confirmed sends, not filter scans.
 
     ``quotes`` maps a row's quote_key (or legacy symbol) to
     ``{'price': decimal-string-or-None, 'at_ms': ms}``. Source-qualified keys
@@ -200,6 +200,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
             values.append((change, 4 if change > 0 else 5 if change < 0 else 3, True))
         else:
             values.append(('غير محسوب', 0, False))
+        values.append((row.get("timeframe", "4h"), 0, False))
         main.append(values)
     metadata = [('البند', 'القيمة'),
                 ('وقت إنشاء التقرير', _label(generated_at_ms)),
@@ -208,8 +209,8 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('بدء حفظ أسعار الإرسال', _label(ledger_started_at_ms)),
                 ('إشارات بدون سعر إرسال مسجل', missing_entry),
                 ('إشارات تعذر جلب سعرها الحالي', missing_current),
-                ('نطاق السجل', 'جميع الإشارات المرسلة المسجلة لهذا المستلم، دون حد 48 ساعة.'),
-                ('تاريخ ووقت التوصية', 'وقت إغلاق شمعة 4h التي أكملت الإشارة، وفق التوقيت المحلي المضبوط للبوت مع التوقيت الصيفي والشتوي.'),
+                ('نطاق السجل', 'الإشارات المرسلة المسجلة لهذا المستلم والمشمولة بالتقرير بعد الاستبعادات المحفوظة، دون حد 48 ساعة.'),
+                ('تاريخ ووقت التوصية', 'وقت إغلاق شمعة الفريم المذكور (4h أو 1D) التي أكملت الإشارة، وفق التوقيت المحلي المضبوط للبوت مع التوقيت الصيفي والشتوي.'),
                 ('سعر الإشارة', 'السعر الفعلي الظاهر عند إرسال الرسالة؛ قد يختلف وقت الإرسال عن وقت شمعة الإشارة.'),
                 ('نسبة التغير', '(السعر الحالي ÷ السعر وقت الإرسال − 1) × 100؛ ليست نتيجة صفقة منفذة ولا تشمل الرسوم.'),
                 ('الأسعار الحالية', 'لقطة سعر واحدة لكل عملة على منصتها عند تجهيز التقرير؛ أوقات جلبها موضحة أدناه، وليست جميعها في اللحظة نفسها.'),
@@ -254,9 +255,44 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                                   ('xl/workbook.xml', workbook), ('xl/_rels/workbook.xml.rels', relationships)):
             archive.writestr(filename, ET.tostring(element, encoding='utf-8', xml_declaration=True))
         archive.writestr('xl/styles.xml', _styles())
-        archive.writestr('xl/worksheets/sheet1.xml', _worksheet(main, (10, 24, 16, 18, 16, 30, 25, 18), autofilter=True))
+        archive.writestr('xl/worksheets/sheet1.xml', _worksheet(main, (10, 24, 16, 18, 16, 30, 25, 18, 12), autofilter=True))
         archive.writestr('xl/worksheets/sheet2.xml', _worksheet(info, (46, 110)))
     return output.getvalue()
+
+
+class ReportView:
+    """Persist a fixed set of excluded old rows without modifying any ledger."""
+
+    def __init__(self, source, metadata_store, exclude_first=99):
+        self.source = source
+        self.metadata_store = metadata_store
+        self.exclude_first = exclude_first
+
+    def is_admin(self, chat_id):
+        return self.source.is_admin(chat_id)
+
+    def get_ledger_started_at_ms(self):
+        return self.source.get_ledger_started_at_ms()
+
+    @staticmethod
+    def _identity(row):
+        source, symbol = _key_parts(_quote_key(row))
+        return (source, symbol, row['signal_close_time'], row.get('timeframe', '4h'))
+
+    def report_rows(self, chat_id):
+        if not self.is_admin(chat_id):
+            return []
+        rows = sorted(self.source.report_rows(chat_id), key=lambda row: (
+            row['signal_close_time'], str(_key_parts(_quote_key(row))[0]),
+            row['symbol'], row.get('timeframe', '4h')))
+        key = f'report_excluded_first99_v1:{chat_id}'
+        with self.metadata_store._lock:
+            excluded = self.metadata_store._metadata(key, None)
+            if excluded is None:
+                excluded = [self._identity(row) for row in rows[:self.exclude_first]]
+                self.metadata_store._set_metadata(key, excluded)
+        excluded = {tuple(identity) for identity in excluded}
+        return [row for row in rows if self._identity(row) not in excluded]
 
 
 class ReportService:

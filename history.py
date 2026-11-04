@@ -52,18 +52,19 @@ class HistoryResult:
     cached_at_ms: int | None = None
     refreshing: bool = False
     exchange_name: str = "Binance Spot"
+    timeframe: str = "4h"
 
 
 def _time_label(timestamp):
     return datetime.fromtimestamp(timestamp / 1000, DISPLAY_TZ).strftime("%Y-%m-%d (%H:%M:%S)")
 
 
-def _signal_row(index, symbol, signal):
+def _signal_row(index, symbol, signal, timeframe="4h"):
     local = datetime.fromtimestamp((signal.close_time + 1) / 1000, DISPLAY_TZ)
     label = (symbol[:-5] + "/USDT" if symbol.endswith("_USDT") else
              symbol[:-4] + "/USDT" if symbol.endswith("USDT") else symbol)
     coin = f"<code>{escape(label)}</code>"
-    return (f'<code>{index:02d}.</code> {coin} ✅ '
+    return (f'<code>{index:02d}.</code> {coin} <code>{timeframe}</code> ✅ '
             f'<code>{local:%Y-%m-%d} ({local:%H:%M})</code>')
 
 
@@ -85,7 +86,7 @@ def format_history(result):
         "إشارات تاريخية، وليست تنبيهات جديدة\n"
         f"{result.exchange_name} • "
         + "أزواج USDT المختارة"
-        + " • 4h\n"
+        + f" • {result.timeframe}\n"
         f"الفترة: {_time_label(cutoff)} إلى {_time_label(result.as_of_ms)}\n"
         f"آخر إغلاق معتمد: {_time_label(result.target_close_time + 1)}\n"
         f"الأزواج المفحوصة: {result.symbols_checked}/{result.symbols_total}\n"
@@ -109,7 +110,7 @@ def format_history(result):
                 "تعذر التأكد من وجود إشارات؛ أعد الطلب لاحقاً.")
         return [header + "\n" + escape(body)]
 
-    rows = [_signal_row(index, symbol, signal)
+    rows = [_signal_row(index, symbol, signal, result.timeframe)
             for index, (symbol, signal) in enumerate(matches, 1)]
     groups = []
     current = []
@@ -139,6 +140,10 @@ class HistoryService:
         self.stop = stop_event
         self.request_delay = request_delay
         self.clock = clock
+        self.interval_ms = getattr(client, "interval_ms", FOUR_HOURS_MS)
+        if type(self.interval_ms) is not int:
+            self.interval_ms = FOUR_HOURS_MS
+        self.timeframe = "1D" if self.interval_ms == 86400000 else "4h"
         self.sleep = sleep
         self.store = store
         name = exchange_name if exchange_name is not None else getattr(store, "exchange_name", "Binance Spot")
@@ -184,13 +189,14 @@ class HistoryService:
                                              for symbol, signal in data["matches"])
                     result = HistoryResult(**data)
                     if (not isinstance(result.as_of_ms, int) or isinstance(result.as_of_ms, bool)
-                            or not 0 < result.as_of_ms <= int(self.clock() * 1000) + FOUR_HOURS_MS
+                            or not 0 < result.as_of_ms <= int(self.clock() * 1000) + self.interval_ms
                             or not isinstance(result.target_close_time, int)
                             or not 0 < result.target_close_time < result.as_of_ms
-                            or (result.target_close_time + 1) % FOUR_HOURS_MS
+                            or (result.target_close_time + 1) % self.interval_ms
                             or result.complete is not (kind == "complete")
                             or not isinstance(result.errors, dict)
-                            or result.exchange_name != self.exchange_name):
+                            or result.exchange_name != self.exchange_name
+                            or result.timeframe != self.timeframe):
                         raise ValueError("Invalid cached report.")
                     for symbol, signal in result.matches:
                         if (not isinstance(symbol, str) or not symbol.replace("_", "").replace("-", "").replace(".", "").isalnum() or len(symbol) > 128
@@ -233,7 +239,7 @@ class HistoryService:
         if result is None:
             return None
         now = int(self.clock() * 1000)
-        target = ((now - CLOSE_GRACE_MS) // FOUR_HOURS_MS) * FOUR_HOURS_MS - 1
+        target = ((now - CLOSE_GRACE_MS) // self.interval_ms) * self.interval_ms - 1
         current = result.target_close_time >= target
         return replace(self._for_now(result, now), cached_at_ms=result.as_of_ms,
                        complete=result.complete and current,
@@ -256,7 +262,7 @@ class HistoryService:
                 if snapshot is not None and snapshot.complete:
                     self._persist_cache()
                     self.refresh_error = None
-                    next_close = snapshot.target_close_time + 1 + FOUR_HOURS_MS + CLOSE_GRACE_MS
+                    next_close = snapshot.target_close_time + 1 + self.interval_ms + CLOSE_GRACE_MS
                     delay = max(1, min(60, next_close / 1000 - self.clock()))
                 else:
                     result = self.scan_once()
@@ -348,7 +354,7 @@ class HistoryService:
                 if snapshot is not None:
                     return snapshot
             original = self._scan_once()
-            result = replace(original, exchange_name=self.exchange_name)
+            result = replace(original, exchange_name=self.exchange_name, timeframe=self.timeframe)
             if self._cache is original:
                 self._cache = result
             if self._partial is original:
@@ -361,13 +367,13 @@ class HistoryService:
         if self.clock() < self._market_blocked_until:
             if self._partial is not None:
                 return self._for_now(self._partial, now)
-            return HistoryResult(now, ((now - CLOSE_GRACE_MS) // FOUR_HOURS_MS) * FOUR_HOURS_MS - 1,
+            return HistoryResult(now, ((now - CLOSE_GRACE_MS) // self.interval_ms) * self.interval_ms - 1,
                                  0, 0, (), False, {"مهلة " + ("بايننس" if self.exchange_name == "Binance Spot" else self.exchange_name): 1}, self._market_blocked_until)
         errors = Counter()
-        target = ((now - CLOSE_GRACE_MS) // FOUR_HOURS_MS) * FOUR_HOURS_MS - 1
+        target = ((now - CLOSE_GRACE_MS) // self.interval_ms) * self.interval_ms - 1
         try:
             as_of = self._request(self.client.server_time)
-            target = ((as_of - CLOSE_GRACE_MS) // FOUR_HOURS_MS) * FOUR_HOURS_MS - 1
+            target = ((as_of - CLOSE_GRACE_MS) // self.interval_ms) * self.interval_ms - 1
             symbols = self._request(self.client.spot_symbols)
         except MarketError as error:
             return self._blocked_result(error, now, target, 0, 0, [], errors)

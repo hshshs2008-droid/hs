@@ -50,6 +50,7 @@ def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_
     """Refresh queued messages without rewriting stored indicators or events."""
     timestamps = (
         (("إغلاق الإشارة: ", "إغلاق شمعة 4h: "), "4H إغلاق الشمعة: ", "🕒 ", close_time),
+        ((), "1D إغلاق الشمعة: ", "🕒 ", close_time),
         (("عبور RSI فوق 20: ",), "RSI عبور فوق الـ20: ", "↗️ ", rsi_event_close_time),
         (("عبور RSI فوق 30: ",), "RSI عبور فوق الـ30: ", "↗️ ", rsi_event_close_time),
         (("تقاطع K فوق D: ",), "K فوق D تقاطع في ", "🔀 ", stoch_event_close_time),
@@ -84,7 +85,7 @@ def _refresh_alert_times(message, close_time, rsi_event_close_time, stoch_event_
     return "\n".join(lines)
 
 
-def format_alert(symbol, signal, *, exchange_name="Binance Spot"):
+def format_alert(symbol, signal, *, exchange_name="Binance Spot", timeframe="4h"):
     def event_value(indicator, side):
         value = getattr(signal, f"{indicator}_event_{side}", None)
         return value if value is not None else getattr(signal, f"{indicator}_{side}")
@@ -106,8 +107,9 @@ def format_alert(symbol, signal, *, exchange_name="Binance Spot"):
         f"K فوق D تقاطع في {_event_time_label(signal.stoch_event_close_time, signal.close_time)}\n"
         f"{timing}"
     )
-    return _refresh_alert_times(message, signal.close_time,
-                                signal.rsi_event_close_time, signal.stoch_event_close_time)
+    rendered = _refresh_alert_times(message, signal.close_time,
+                                    signal.rsi_event_close_time, signal.stoch_event_close_time)
+    return rendered.replace("⏱️ 4h", "⏳ 1D").replace("4H إغلاق", "1D إغلاق") if timeframe == "1D" else rendered
 
 
 class AlertStore:
@@ -318,15 +320,18 @@ class AlertStore:
     def repeat_alert_note(self, chat_id, symbol, close_time, now_ms):
         """Count distinct confirmed recommendations for this recipient, not retries."""
         week = 7 * 24 * 60 * 60 * 1000
-        with self._lock:
-            rows = self._db.execute("""
-                SELECT MIN(COALESCE(telegram_sent_at_ms, confirmed_at_ms)) AS first_sent
-                FROM delivery_ledger
-                WHERE chat_id = ? AND symbol = ? AND status = 'sent'
-                  AND signal_close_time != ?
-                GROUP BY signal_close_time
-                HAVING first_sent >= ? AND first_sent <= ?
-            """, (chat_id, symbol, close_time, now_ms - week, now_ms)).fetchall()
+        rows = []
+        for source in getattr(self, "repeat_sources", [self]):
+            with source._lock:
+                rows.extend(source._db.execute("""
+                    SELECT MIN(COALESCE(telegram_sent_at_ms, confirmed_at_ms)) AS first_sent
+                    FROM delivery_ledger
+                    WHERE chat_id = ? AND symbol = ? AND status = 'sent'
+                      AND (? = 0 OR signal_close_time != ?)
+                    GROUP BY signal_close_time
+                    HAVING first_sent >= ? AND first_sent <= ?
+                """, (chat_id, symbol, int(source is self), close_time,
+                      now_ms - week, now_ms)).fetchall())
         if not rows:
             return ""
         elapsed = max(0, now_ms - max(row[0] for row in rows)) // 1000
@@ -481,7 +486,7 @@ class AlertStore:
             if signal is not None:
                 self._db.execute(
                     "INSERT OR IGNORE INTO signals VALUES (?, ?, ?, ?, ?)",
-                    (symbol, signal.close_time, format_alert(symbol, signal, exchange_name=self.exchange_name),
+                    (symbol, signal.close_time, format_alert(symbol, signal, exchange_name=self.exchange_name, timeframe=getattr(self, "timeframe", "4h")),
                      signal.rsi_event_close_time, signal.stoch_event_close_time),
                 )
                 self._db.executemany(
@@ -717,7 +722,10 @@ class Scanner:
         try:
             server_time = self._request(self.client.server_time)
             status["requests"] += 1
-            target = ((server_time - CLOSE_GRACE_MS) // FOUR_HOURS_MS) * FOUR_HOURS_MS - 1
+            interval = getattr(self.client, "interval_ms", FOUR_HOURS_MS)
+            if type(interval) is not int:
+                interval = FOUR_HOURS_MS
+            target = ((server_time - CLOSE_GRACE_MS) // interval) * interval - 1
             status["target_close_time"] = target
             if self._symbols is None or self.clock() >= self._symbols_expires:
                 self._symbols = self._request(self.client.spot_symbols)

@@ -16,6 +16,7 @@ from urllib.request import Request, urlopen
 
 
 FOUR_HOURS_MS = 4 * 60 * 60 * 1000
+ONE_DAY_MS = 24 * 60 * 60 * 1000
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 DEFAULT_BASE_URL = "https://api.binance.com"
 EXCLUDED_BASE_ASSETS = frozenset({'APPB', 'BSPB', 'GEVB', 'SKDDB', 'SKUUB'})
@@ -90,7 +91,10 @@ def _valid_symbol(symbol):
 
 
 class BinanceClient:
-    def __init__(self, base_url=None, timeout=20, *, clock=time.time):
+    def __init__(self, base_url=None, timeout=20, *, clock=time.time, interval_ms=FOUR_HOURS_MS):
+        if type(interval_ms) is not int or interval_ms not in (FOUR_HOURS_MS, ONE_DAY_MS):
+            raise ValueError("Unsupported candle interval.")
+        self.interval_ms = interval_ms
         base_url = base_url or os.environ.get("API_BINANCE_BASE", DEFAULT_BASE_URL)
         try:
             parts = urlsplit(base_url)
@@ -217,14 +221,15 @@ class BinanceClient:
                       else symbols & self.selected_symbols)
 
     def candles(self, symbol, server_time_ms, limit=500):
-        """Return contiguous closed UTC 4h candles; short histories stay short."""
+        """Return contiguous closed UTC candles; short histories stay short."""
+        interval_ms = self.interval_ms
         if not _valid_symbol(symbol):
             raise ValueError("Invalid Binance symbol.")
         if isinstance(server_time_ms, bool) or not isinstance(server_time_ms, int) or server_time_ms <= 0:
             raise ValueError("A positive Binance server timestamp is required.")
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
             raise ValueError("Candle limit must be between 1 and 1000.")
-        rows = self._get("/api/v3/klines", {"symbol": symbol, "interval": "4h", "limit": limit})
+        rows = self._get("/api/v3/klines", {"symbol": symbol, "interval": "1d" if interval_ms == ONE_DAY_MS else "4h", "limit": limit})
         if not isinstance(rows, list):
             raise MarketError("Binance returned invalid candle data.")
         candles = []
@@ -233,9 +238,9 @@ class BinanceClient:
             if not isinstance(row, list) or len(row) < 7:
                 raise MarketError("Binance returned an invalid candle row.")
             open_time, close_time = _timestamp(row[0]), _timestamp(row[6])
-            if open_time % FOUR_HOURS_MS or close_time != open_time + FOUR_HOURS_MS - 1:
-                raise MarketError("Binance returned an invalid 4h candle interval.")
-            if previous_open_time is not None and open_time != previous_open_time + FOUR_HOURS_MS:
+            if open_time % interval_ms or close_time != open_time + interval_ms - 1:
+                raise MarketError("Binance returned an invalid candle interval.")
+            if previous_open_time is not None and open_time != previous_open_time + interval_ms:
                 raise MarketError("Binance candle history has gaps or out-of-order rows.")
             previous_open_time = open_time
             opening, high, low, close = (_price(value) for value in row[1:5])

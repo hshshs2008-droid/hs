@@ -212,6 +212,7 @@ class ReportBotTests(unittest.TestCase):
         with patch.dict(os.environ, {'TELEGRAM_BOT_TOKEN': 'test-token', 'TELEGRAM_ADMIN_ID': '100'}, clear=True), \
                 patch('bot.api', side_effect=api), patch('alerts.AlertStore', return_value=store), \
                 patch('alerts.Scanner') as scanner, patch('market.BinanceClient'), \
+                patch('gate_runtime.GateStore'), \
                 patch('history.HistoryService') as history, patch('reporting.ReportService') as reports, \
                 patch('bot.threading.Thread', return_value=worker):
             history.return_value.is_alive.return_value = False

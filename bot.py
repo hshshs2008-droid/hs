@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 WELCOME = (
     "أهلاً بك! 👋\n"
-    "أراقب أزواج USDT في Binance Spot على فريم 4h.\n"
+    "أراقب أزواج USDT في Binance Spot على فريمي 4h و1D ⏳.\n"
     "RSI (14) يعبر فوق 30، أو فوق 20 لإشارات 💎، والستوكاست (14، 3، 3) يتقاطع صعوداً تحت 20 "
     "مع صعود الخطين عن الشمعة السابقة.\n"
     "يكتمل الشرطان في الشمعة نفسها أو شمعتين متتاليتين، بأي ترتيب.\n\n"
@@ -141,7 +141,7 @@ def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_
                 continue
             ticker = symbol[:-5] + "USDT" if symbol.endswith("_USDT") else symbol
             url = "https://www.tradingview.com/chart/?" + urlencode({
-                "symbol": exchange + ":" + ticker, "interval": "240"})
+                "symbol": exchange + ":" + ticker, "interval": "D" if "⏳ 1D" in text else "240"})
             payload["entities"] = [{"type": "text_link",
                                     "offset": len(text[:start].encode("utf-16-le")) // 2,
                                     "length": len(label.encode("utf-16-le")) // 2,
@@ -353,8 +353,8 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
     if command == "/start":
         reply = WELCOME
         if gate_store is not None:
-            reply = reply.replace("أراقب أزواج USDT في Binance Spot على فريم 4h.",
-                                  "أراقب القائمة المعتمدة من CoinMarketCap على Binance Spot وGate.io Spot، مقابل USDT وعلى فريم 4h.")
+            reply = reply.replace("أراقب أزواج USDT في Binance Spot على فريمي 4h و1D ⏳.",
+                                  "أراقب القائمة المعتمدة من CoinMarketCap على Binance Spot وGate.io Spot، مقابل USDT وعلى فريمي 4h و1D ⏳.")
         if store is not None and store.access_required() is True and store.is_admin(chat["id"]):
             reply += "\n\nإدارة الاشتراكات:\n/requests — طلبات الانضمام\n/members — المشتركون وسحب الصلاحية\n/approve مع رقم الحساب — الموافقة على طلب سبق رفضه\n/report — تقرير Excel للإشارات والأسعار"
         api(token, "sendMessage", {"chat_id": message["chat"]["id"], "text": reply})
@@ -487,7 +487,7 @@ def main():
         from market import BinanceClient, MarketError
         from indicators import entry_signal
         from history import HistoryService
-        from reporting import ReportService
+        from reporting import ReportService, ReportView
 
         flag = os.environ.get("GATE_SPOT_ENABLED", "false").strip().lower()
         if flag not in ("true", "1", "on", "yes", "false", "0", "off", "no", ""):
@@ -625,11 +625,14 @@ def main():
                 lambda chat_id, text: send_alert(chat_id, text, "HTML"), stop,
                 store=gate_store, exchange_name="Gate.io Spot")
             history = CombinedHistory(history, gate_history)
-        report_store, report_client = store, client
-        if gate_store is not None:
-            from gate_runtime import ReportStore, MarketRouter
-            report_store, report_client = ReportStore(store, gate_store), MarketRouter(client, gate_client)
-        reports = ReportService(report_store, report_client, send_report_document, send_report_notice, stop)
+        from gate_runtime import ReportStore, MarketRouter
+        report_store = ReportStore(store, gate_store)
+        report_client = MarketRouter(client, gate_client)
+        from daily_runtime import build_daily
+        daily_stores, daily_scanners, history, report_store = build_daily(
+            store, gate_store, state_path, universe, universe_version, history,
+            report_store, send_alert, stop, client, gate_client, gate_enabled=gate_enabled)
+        reports = ReportService(ReportView(report_store, store), report_client, send_report_document, send_report_notice, stop)
         history.start_background()
         try:
             api(token, "setMyCommands", {"commands": [
@@ -659,6 +662,11 @@ def main():
         if gate_scanner is not None:
             gate_worker = threading.Thread(target=monitor, args=(gate_scanner,), name="gate-scanner", daemon=True)
             gate_worker.start()
+        daily_workers = []
+        for daily_scanner in daily_scanners:
+            thread = threading.Thread(target=monitor, args=(daily_scanner,), name="daily-scanner", daemon=True)
+            thread.start()
+            daily_workers.append(thread)
         print("البوت يعمل وينتظر الرسائل.", flush=True)
         offset = store.get_update_offset()
         next_health_log = 0.0
@@ -686,12 +694,14 @@ def main():
         finally:
             stop.set()
             deadline = time.monotonic() + 50
-            workers = [worker] + ([gate_worker] if gate_worker is not None else [])
+            workers = [worker] + ([gate_worker] if gate_worker is not None else []) + daily_workers
             for thread in workers:
                 thread.join(timeout=min(25, max(0, deadline - time.monotonic())))
             history.join(timeout=min(25, max(0, deadline - time.monotonic())))
             reports.join(timeout=min(5, max(0, deadline - time.monotonic())))
             if not any(thread.is_alive() for thread in workers) and not history.is_alive() and not reports.is_alive():
+                for _, daily_store in daily_stores:
+                    daily_store.close()
                 if gate_store is not None:
                     gate_store.close()
                 store.close()

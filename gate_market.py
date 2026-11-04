@@ -21,7 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
-from market import BinanceClient, Candle, FOUR_HOURS_MS, MAX_RESPONSE_BYTES, MarketError, _retry_seconds, EXCLUDED_BASE_ASSETS
+from market import BinanceClient, Candle, FOUR_HOURS_MS, ONE_DAY_MS, MAX_RESPONSE_BYTES, MarketError, _retry_seconds, EXCLUDED_BASE_ASSETS
 
 
 DEFAULT_GATE_BASE = 'https://api.gateio.ws'
@@ -89,7 +89,7 @@ class GateClient:
     # A valid nonempty upstream list can yield zero pairs after exclusions.
     allow_empty_universe = True
 
-    def __init__(self, binance_client, base_url=DEFAULT_GATE_BASE, timeout=20, *, clock=time.time):
+    def __init__(self, binance_client, base_url=DEFAULT_GATE_BASE, timeout=20, *, clock=time.time, interval_ms=FOUR_HOURS_MS):
         try:
             parts = urlsplit(base_url)
             valid = (parts.scheme == 'https' and bool(parts.hostname) and parts.username is None
@@ -106,6 +106,9 @@ class GateClient:
             raise ValueError('Market request clock must be callable.')
         if not callable(getattr(binance_client, 'spot_symbols', None)):
             raise ValueError('A Binance universe client is required.')
+        if type(interval_ms) is not int or interval_ms not in (FOUR_HOURS_MS, ONE_DAY_MS):
+            raise ValueError("Unsupported candle interval.")
+        self.interval_ms = interval_ms
         self.binance_client = binance_client
         self.base_url = base_url.rstrip('/')
         self.timeout, self._clock = timeout, clock
@@ -293,13 +296,14 @@ class GateClient:
         return plain.rstrip('0').rstrip('.') if '.' in plain else plain
 
     def candles(self, symbol, server_time_ms, limit=500):
+        interval_ms = self.interval_ms
         if not valid_gate_pair(symbol):
             raise ValueError('Invalid Gate.io pair.')
         if type(server_time_ms) is not int or server_time_ms <= 0:
             raise ValueError('A positive Gate.io server timestamp is required.')
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError('Candle limit must be between 1 and 1000.')
-        rows = self._get('/spot/candlesticks', {'currency_pair': symbol, 'interval': '4h', 'limit': limit})
+        rows = self._get('/spot/candlesticks', {'currency_pair': symbol, 'interval': '1d' if interval_ms == ONE_DAY_MS else '4h', 'limit': limit})
         if not isinstance(rows, list) or len(rows) > limit:
             raise MarketError('Gate.io returned invalid candle data.')
         parsed = []
@@ -308,6 +312,8 @@ class GateClient:
             if not isinstance(row, list) or len(row) not in (6, 7, 8):
                 raise MarketError('Gate.io returned an invalid candle row.')
             opened = _open_time(row[0])
+            if opened % interval_ms:
+                raise MarketError("Gate.io returned an invalid candle interval.")
             if opened in seen:
                 raise MarketError('Gate.io returned duplicate candle timestamps.')
             seen.add(opened)
@@ -324,11 +330,11 @@ class GateClient:
                     closed = _closed_flag(row[6])
                 else:
                     _volume(row[6])
-            ended = opened + FOUR_HOURS_MS - 1
+            ended = opened + interval_ms - 1
             if closed and ended < server_time_ms:
                 parsed.append(Candle(opened, ended, opening, high, low, close))
         parsed.sort(key=lambda candle: candle.open_time)
-        if any(current.open_time != previous.open_time + FOUR_HOURS_MS
+        if any(current.open_time != previous.open_time + interval_ms
                for previous, current in zip(parsed, parsed[1:])):
             raise MarketError('Gate.io closed candle history has gaps.')
         return parsed

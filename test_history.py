@@ -423,7 +423,7 @@ class HistoryTests(unittest.TestCase):
         for page in pages:
             self.assertNotIn("<pre>", page)
             for line in visible_report(page).splitlines():
-                row = re.fullmatch(r"(\d+)\. (\S+) ✅ (\d{4}-\d{2}-\d{2}) (\(\d{2}:\d{2}\))", line)
+                row = re.fullmatch(r"(\d+)\. (\S+) 4h ✅ (\d{4}-\d{2}-\d{2}) (\(\d{2}:\d{2}\))", line)
                 if row:
                     serials.append(int(row[1]))
                     listed[row[2].replace("/", "")] += 1
@@ -446,7 +446,7 @@ class HistoryTests(unittest.TestCase):
                 self.assertIn(expected, text)
                 self.assertNotIn("RSI", text)
                 self.assertNotIn("ستوكاست", text)
-                self.assertIn(f"01. BTC/USDT ✅ 2026-{month:02d}-15 {expected}", text)
+                self.assertIn(f"01. BTC/USDT 4h ✅ 2026-{month:02d}-15 {expected}", text)
                 self.assertIn("<code>BTC/USDT</code>", page)
                 self.assertNotIn("<a ", page)
                 self.assertNotIn("<pre>", page)

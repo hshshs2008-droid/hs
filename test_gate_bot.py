@@ -149,18 +149,19 @@ class GateBotTests(unittest.TestCase):
             histories.return_value.refresh_error = None
             reports.return_value.is_alive.return_value = False
             self.assertEqual(bot.main(), 0)
-            self.assertEqual(scanners.call_count, 2)
+            self.assertEqual(scanners.call_count, 4)
             self.assertIs(scanners.call_args_list[0].args[0], binance_client.return_value)
             self.assertIs(scanners.call_args_list[1].args[0], gate_client.return_value)
             self.assertIn('send_signal', scanners.call_args_list[1].kwargs)
             self.assertEqual(histories.call_args_list[1].kwargs['exchange_name'], 'Gate.io Spot')
-            self.assertEqual(thread.start.call_count, 2)
-            self.assertIs(reports.call_args.args[0].main_store, main)
-            self.assertIs(reports.call_args.args[0].gate_store, gate)
+            self.assertEqual(thread.start.call_count, 4)
+            self.assertIs(reports.call_args.args[0].source.primary.main_store, main)
+            self.assertIs(reports.call_args.args[0].source.primary.gate_store, gate)
             self.assertIs(reports.call_args.args[1].binance_client, binance_client.return_value)
-            gate_store.assert_called_once_with(str(self.path / 'gate-alerts.sqlite3'), main)
+            self.assertEqual([Path(call.args[0]).name for call in gate_store.call_args_list],
+                             ['gate-alerts.sqlite3', 'binance-daily.sqlite3', 'gate-daily.sqlite3'])
             main.close.assert_called_once()
-            gate.close.assert_called_once()
+            self.assertEqual(gate.close.call_count, 3)
         self.assertTrue(any('Gate.io Spot' in text and '25/100' in text for text in sent))
 
 
