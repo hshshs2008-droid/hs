@@ -342,7 +342,7 @@ class AlertStore:
         else:
             amount, unit = elapsed // 60, "minute"
         age = "less than a minute ago" if amount == 0 else f"{amount} {unit}{'s' if amount != 1 else ''} ago"
-        return f"Last alert: {age} ({len(rows) + 1}/7D) 🔁"
+        return f"📊 Last alert: {age} ({len(rows) + 1}/7D)"
 
     def report_rows(self, chat_id):
         """Return the first confirmed message for each signal for one recipient."""

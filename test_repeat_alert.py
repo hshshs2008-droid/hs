@@ -14,11 +14,11 @@ class RepeatTests(unittest.TestCase):
   self.receipt(2,2*DAY);self.receipt(3,9*DAY,chat=2)
   self.receipt(4,9*DAY,symbol='ETHUSDT');self.receipt(5,9*DAY,confirmed=False)
   self.receipt(6,9*DAY)
-  self.assertEqual(self.s.repeat_alert_note(1,'BTCUSDT',6,10*DAY),'Last alert: 2 days ago (2/7D) 🔁')
+  self.assertEqual(self.s.repeat_alert_note(1,'BTCUSDT',6,10*DAY),'📊 Last alert: 2 days ago (2/7D)')
  def test_hours_count_and_no_first_alert_note(self):
   self.assertEqual(self.s.repeat_alert_note(1,'BTCUSDT',10,10*DAY),'')
   for i in range(8):self.receipt(i+1,10*DAY-13*3600000-i*3600000)
-  self.assertEqual(self.s.repeat_alert_note(1,'BTCUSDT',10,10*DAY),'Last alert: 13 hours ago (9/7D) 🔁')
+  self.assertEqual(self.s.repeat_alert_note(1,'BTCUSDT',10,10*DAY),'📊 Last alert: 13 hours ago (9/7D)')
  @patch('bot.api')
  @patch('bot.time.time',return_value=10*DAY/1000)
  def test_sent_and_saved_message_include_note(self,clock,api):
@@ -27,5 +27,5 @@ class RepeatTests(unittest.TestCase):
   c=Mock();c.latest_price.return_value='10'
   send_alert_message('test',c,1,'📈 BTCUSDT\n🏷️ Binance Spot',store=self.s,signal_close_time=2)
   text=api.call_args.args[2]['text']
-  self.assertTrue(text.endswith('Last alert: 2 days ago (2/7D) 🔁'))
+  self.assertTrue(text.endswith('📊 Last alert: 2 days ago (2/7D)'))
   self.assertEqual(self.s.report_rows(1)[-1]['message_text'],text)

@@ -51,7 +51,7 @@ class BotTests(unittest.TestCase):
         client.latest_price.assert_called_once_with("BNKR_USDT")
         self.assertEqual(store.prepare_delivery.call_args.args[1], "BNKR_USDT")
         self.assertEqual(api.call_args.args[2]['text'],
-                         "📈 BNKRUSDT | 💵 0.0002823 USDT\nGate.io Spot")
+                         "🔔 BNKRUSDT | 💵 0.0002823 USDT\nGate.io Spot")
 
     @patch("bot.api")
     def test_delivery_retry_fetches_fresh_price_after_signal_creation(self, api):
@@ -75,7 +75,7 @@ class BotTests(unittest.TestCase):
         client.latest_price.side_effect = bot.MarketError("private diagnostic", status=429)
         with self.assertLogs("bot", level="WARNING") as log:
             bot.send_alert_message("test-token", client, 42, "📈 BTCUSDT\nsignal body")
-        self.assertEqual(api.call_args.args[2]["text"], "📈 BTCUSDT | 💵 السعر غير متاح\nsignal body")
+        self.assertEqual(api.call_args.args[2]["text"], "🔔 BTCUSDT | 💵 السعر غير متاح\nsignal body")
         self.assertNotIn("private diagnostic", " ".join(log.output))
 
     @patch("bot.api")

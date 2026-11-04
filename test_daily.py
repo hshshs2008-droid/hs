@@ -72,6 +72,12 @@ class DailyTests(unittest.TestCase):
             client.latest_price.return_value = '10'
             send_alert_message('test-token', client, 100, text)
         self.assertIn('interval=D', api.call_args.args[2]['entities'][0]['url'])
+        rendered = api.call_args.args[2]['text']
+        self.assertTrue(rendered.startswith('🔔 BTCUSDT | 💵'))
+        self.assertIn('✅ ⏳ 1D شموع مغلقة', rendered)
+        self.assertIn('📈 RSI (14):', rendered)
+        self.assertIn('🔗 Match: الشرطان في الشمعة نفسها.', rendered)
+        self.assertIn('💎', rendered)
 
     def test_clients_request_closed_daily_candles_and_reject_misalignment(self):
         for client in (BinanceClient(interval_ms=DAY), GateClient(BinanceClient(), interval_ms=DAY)):

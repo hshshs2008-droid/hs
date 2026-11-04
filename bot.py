@@ -105,6 +105,24 @@ def send_document(token, chat_id, content, filename, caption=""):
     return _telegram_request(request)
 
 
+def format_signal_display(text):
+    """Render alert icons without changing persisted delivery identities."""
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if index == 0 and line.startswith('📈 '):
+            line = '🔔 ' + line.removeprefix('📈 ')
+        elif line.startswith('📊 RSI (14):'):
+            line = '📈 ' + line.removeprefix('📊 ')
+        elif line == '⏱️ 4h • شموع مغلقة':
+            line = '✅ 4h شموع مغلقة'
+        elif line == '⏳ 1D • شموع مغلقة':
+            line = '✅ ⏳ 1D شموع مغلقة'
+        elif line.startswith(('الشرطان ', '🔗 الشرطان ')):
+            line = '🔗 Match: ' + line.removeprefix('🔗 ').removesuffix(' 🔗')
+        lines[index] = line
+    return '\n'.join(lines)
+
+
 def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_send=None,
                        store=None, signal_close_time=None):
     """Capture the exact quoted payload before send; confirm only Telegram receipts."""
@@ -127,6 +145,8 @@ def send_alert_message(token, client, chat_id, text, parse_mode=None, *, before_
             text = f"📈 {display_symbol} | {quote}{separator}{body}"
     if store is not None and (symbol is None or signal_close_time is None or parse_mode is not None):
         raise ValueError("Durable live delivery requires explicit signal identity.")
+    if symbol is not None and parse_mode is None:
+        text = format_signal_display(text)
     payload = {"chat_id": chat_id, "text": text}
     if symbol is not None and parse_mode is None:
         for label, exchange in (("Binance Spot", "BINANCE"), ("Gate.io Spot", "GATEIO")):
