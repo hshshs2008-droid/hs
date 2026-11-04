@@ -25,7 +25,7 @@ class Rsi20Tests(unittest.TestCase):
     self.assertEqual(s.stoch_event_close_time,candles()[events[1]].close_time)
     self.assertLessEqual(s.rsi_event_previous,20);self.assertGreater(s.rsi_event_current,20)
  def test_limits_rising_lines_and_completion_still_required(self):
-  for r,k,d in [([18,19,20],[8,9,15],[10,11,13]),([19,22,19],[8,9,15],[10,11,13]),([19,22,23],[8,9,21],[10,11,13]),([18,19,23],[8,9,15],[10,14,13]),([18,19,23],[8,15,10],[10,13,18]),([21,22,23],[8,9,15],[10,11,13])]:
+  for r,k,d in [([18,19,20],[8,9,15],[10,11,13]),([19,22,19],[8,9,15],[10,11,13]),([18,19,23],[8,9,15],[10,14,13]),([18,19,23],[8,15,10],[10,13,18]),([21,22,23],[8,9,15],[10,11,13])]:
    with self.subTest(r=r,k=k,d=d):self.assertIsNone(evaluate(r,k,d))
   self.assertIsNotNone(evaluate([19,20,20.001],[8,9,15],[10,11,13]))
  def test_priority_30_and_legacy_fields(self):

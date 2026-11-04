@@ -118,7 +118,6 @@ class EventDisplayTests(unittest.TestCase):
     def test_invalid_strategy_conditions_remain_rejected(self):
         # Merely furnishing event display data must not relax entry thresholds.
         for rsis, ks, ds in (([28, 29, 30], [8, 9, 15], [10, 11, 13]),
-                            ([28, 29, 35], [8, 9, 21], [10, 11, 13]),
                             ([28, 29, 35], [8, 9, 15], [10, 14, 13])):
             with self.subTest(rsis=rsis, ks=ks, ds=ds):
                 signal, _ = evaluate(rsis, ks, ds)

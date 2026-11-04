@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from math import isfinite
 
 
-STRATEGY_VERSION = "rsi20-rsi30-stoch20-v2"
+STRATEGY_VERSION = "rsi20-rsi30-stoch-from20-v3"
 RSI30_STRATEGY_VERSION = "rsi30-stoch20-v1"
 
 
@@ -116,13 +116,13 @@ def match_events(rsis, ks, ds, *, threshold=30):
     """Return (RSI index, Stochastic index) only for a fresh entry signal.
 
     RSI crosses from <= threshold to > threshold (20 or 30). Stochastic crosses K above D, with both
-    lines below 20 on the preceding candle and on the event candle;
+    lines below 20 on the preceding closed candle;
     both lines must rise compared with their preceding values.
     Both events occur on the newest candle or on two consecutive candles,
     in either order; at least one event must be on the newest candle.
     At the newest close RSI must remain above the threshold and K above D.
-    When the Stochastic event came first, its below-20 boundary and rising
-    slopes need not persist on the following RSI completion candle.
+    When Stochastic came first, neither line may return from >=20 to <20
+    on the following RSI completion close. Remaining below 20 is allowed.
     """
     if type(threshold) is not int or threshold not in (20, 30):
         raise ValueError("Unsupported RSI threshold")
@@ -148,13 +148,17 @@ def match_events(rsis, ks, ds, *, threshold=30):
         if any(value is None for value in (previous_k, current_k, previous_d, current_d)):
             return False
         return (previous_k < 20 and previous_d < 20 and previous_k <= previous_d
-                and current_k > current_d and current_k < 20 and current_d < 20
+                and current_k > current_d
                 and current_k > previous_k and current_d > previous_d)
 
     newest = size - 1
     for rsi_index, stoch_index in ((newest, newest), (newest - 1, newest),
                                   (newest, newest - 1)):
         if rsi_event(rsi_index) and stoch_event(stoch_index):
+            if stoch_index < newest and any(
+                    _number(series[stoch_index]) >= 20 > _number(series[newest])
+                    for series in (ks, ds)):
+                continue
             return rsi_index, stoch_index
     return None
 

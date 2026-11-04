@@ -124,10 +124,8 @@ class EventMatchingTests(unittest.TestCase):
 
     def test_strict_stochastic_thresholds_and_actual_crossover(self):
         cases = [([20, 25], [19, 24]), ([10, 25], [20, 24]),
-                 ([10, 20], [15, 19]), ([10, 21], [15, 20]),
                  ([10, 19], [15, 19]), ([16, 19], [15, 18]),
-                 ([None, 19], [15, 18]), ([10, float("inf")], [15, 18]),
-                 ([10, 25], [15, 24])]
+                 ([None, 19], [15, 18]), ([10, float("inf")], [15, 18])]
         for ks, ds in cases:
             with self.subTest(ks=ks, ds=ds):
                 self.assertIsNone(indicators.match_events([29, 31], ks, ds))
