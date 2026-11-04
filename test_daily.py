@@ -57,8 +57,8 @@ class DailyTests(unittest.TestCase):
         self.assertEqual(self.main.repeat_alert_note(101, 'BTCUSDT', close+DAY, BOUNDARY+DAY), '')
         self.assertEqual(self.main.repeat_alert_note(100, 'BTCUSDT', close+9*DAY, BOUNDARY+9*DAY), '')
         workbook = cells(build_report(rows, {('binance', 'BTCUSDT'): {'price': '12', 'at_ms': BOUNDARY}}, BOUNDARY))
-        self.assertEqual(workbook[0][-1], 'الفريم')
-        self.assertEqual({r[-1] for r in workbook[1:]}, {'4h', '1D'})
+        self.assertEqual(workbook[0][5], 'الفريم')
+        self.assertEqual({r[5] for r in workbook[1:]}, {'4h', '1D'})
 
     def test_daily_format_preserves_threshold_and_queued_message_frame(self):
         text = format_alert('BTCUSDT', self.signal(threshold=20), timeframe='1D')
