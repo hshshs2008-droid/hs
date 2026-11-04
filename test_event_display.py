@@ -113,7 +113,7 @@ class EventDisplayTests(unittest.TestCase):
         self.assertIsNone(signal.k_event_current)
         self.assertIn('RSI (14): 29.00 → 31.00', format_alert('BTCUSDT', signal))
         self.assertEqual(Signal(**json.loads(json.dumps(asdict(signal)))), signal)
-        self.assertEqual(STRATEGY_VERSION, 'rsi30-stoch20-v1')
+        self.assertEqual(signal.rsi_threshold, 30)
 
     def test_invalid_strategy_conditions_remain_rejected(self):
         # Merely furnishing event display data must not relax entry thresholds.

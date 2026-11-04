@@ -11,7 +11,7 @@ import time
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from indicators import STRATEGY_VERSION, entry_signal
+from indicators import STRATEGY_VERSION, RSI30_STRATEGY_VERSION, entry_signal
 from market import FOUR_HOURS_MS, MarketError, is_excluded_pair
 
 
@@ -89,6 +89,8 @@ def format_alert(symbol, signal, *, exchange_name="Binance Spot"):
         value = getattr(signal, f"{indicator}_event_{side}", None)
         return value if value is not None else getattr(signal, f"{indicator}_{side}")
 
+    threshold = signal.rsi_threshold
+    marker = " 💎" if threshold == 20 else ""
     timing = "الشرطان في الشمعة نفسها."
     if signal.rsi_event_close_time != signal.stoch_event_close_time:
         timing = "الشرطان في شمعتين متتاليتين."
@@ -97,10 +99,10 @@ def format_alert(symbol, signal, *, exchange_name="Binance Spot"):
         f"🏷️ {exchange_name}\n"
         "⏱️ 4h • شموع مغلقة\n"
         f"4H إغلاق الشمعة: {_close_label(signal.close_time)}\n"
-        f"RSI (14): {event_value('rsi', 'previous'):.2f} → {event_value('rsi', 'current'):.2f}\n"
+        f"RSI (14): {event_value('rsi', 'previous'):.2f} → {event_value('rsi', 'current'):.2f}{marker}\n"
         f"K: {event_value('k', 'previous'):.2f} → {event_value('k', 'current'):.2f}\n"
         f"D: {event_value('d', 'previous'):.2f} → {event_value('d', 'current'):.2f}\n"
-        f"RSI عبور فوق الـ30: {_event_time_label(signal.rsi_event_close_time, signal.close_time)}\n"
+        f"RSI عبور فوق الـ{threshold}: {_event_time_label(signal.rsi_event_close_time, signal.close_time)}\n"
         f"K فوق D تقاطع في {_event_time_label(signal.stoch_event_close_time, signal.close_time)}\n"
         f"{timing}"
     )
@@ -209,18 +211,26 @@ class AlertStore:
             # Retain old signals and receipts, but don't deliver the former
             # strategy's queued alerts after a rule change. The activation
             # boundary survives restarts and applies independently per exchange.
-            if self._metadata("strategy_version", None) != STRATEGY_VERSION:
+            previous_strategy = self._metadata("strategy_version", None)
+            if previous_strategy != STRATEGY_VERSION:
                 existing = self._db.execute(
                     "SELECT 1 FROM checkpoints UNION ALL SELECT 1 FROM subscriptions LIMIT 1"
                 ).fetchone()
                 activation = int(time.time() * 1000) if existing else 0
+                rsi20_activation = activation
+                if previous_strategy == RSI30_STRATEGY_VERSION:
+                    # Add the 20 branch without dropping queued 30 alerts or
+                    # changing their existing activation boundary.
+                    activation = self._metadata("strategy_activation_ms", 0)
                 self._db.executemany(
                     "INSERT INTO metadata(key,value) VALUES (?,?) "
                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                     [("strategy_version", json.dumps(STRATEGY_VERSION)),
-                     ("strategy_activation_ms", json.dumps(activation))],
+                     ("strategy_activation_ms", json.dumps(activation)),
+                     ("rsi20_activation_ms", json.dumps(rsi20_activation))],
                 )
             self.strategy_activation_ms = self._metadata("strategy_activation_ms", 0)
+            self.rsi20_activation_ms = self._metadata("rsi20_activation_ms", self.strategy_activation_ms)
 
     def close(self):
         with self._lock:
@@ -752,7 +762,8 @@ class Scanner:
                 if candle.close_time <= earliest_needed:
                     continue
                 signal = entry_signal(candles[:index + 1])
-                if signal is not None:
+                if (signal is not None and
+                        (signal.rsi_threshold != 20 or candle.close_time >= self.store.rsi20_activation_ms)):
                     self.store.record(symbol, candle.close_time, signal)
             # Persist all discovered signal records before declaring this symbol
             # complete. Already-created delivery keys survive a process restart.

@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from math import isfinite
 
 
-STRATEGY_VERSION = "rsi30-stoch20-v1"
+STRATEGY_VERSION = "rsi20-rsi30-stoch20-v2"
+RSI30_STRATEGY_VERSION = "rsi30-stoch20-v1"
 
 
 def _number(value):
@@ -111,31 +112,33 @@ def stochastic(candles, period=14, smooth_k=3, smooth_d=3):
     return k, _sma(k, smooth_d)
 
 
-def match_events(rsis, ks, ds):
+def match_events(rsis, ks, ds, *, threshold=30):
     """Return (RSI index, Stochastic index) only for a fresh entry signal.
 
-    RSI crosses from <= 30 to > 30. Stochastic crosses K above D, with both
+    RSI crosses from <= threshold to > threshold (20 or 30). Stochastic crosses K above D, with both
     lines below 20 on the preceding candle and on the event candle;
     both lines must rise compared with their preceding values.
     Both events occur on the newest candle or on two consecutive candles,
     in either order; at least one event must be on the newest candle.
-    At the newest close RSI must remain above 30 and K must remain above D.
+    At the newest close RSI must remain above the threshold and K above D.
     When the Stochastic event came first, its below-20 boundary and rising
     slopes need not persist on the following RSI completion candle.
     """
+    if type(threshold) is not int or threshold not in (20, 30):
+        raise ValueError("Unsupported RSI threshold")
     size = len(rsis)
     if size < 2 or len(ks) != size or len(ds) != size:
         return None
     if any(_number(value) is None for series in (rsis, ks, ds) for value in series[-2:]):
         return None
-    if _number(rsis[-1]) <= 30 or _number(ks[-1]) <= _number(ds[-1]):
+    if _number(rsis[-1]) <= threshold or _number(ks[-1]) <= _number(ds[-1]):
         return None
 
     def rsi_event(index):
         if index < 1:
             return False
         previous, current = _number(rsis[index - 1]), _number(rsis[index])
-        return previous is not None and current is not None and previous <= 30 < current
+        return previous is not None and current is not None and previous <= threshold < current
 
     def stoch_event(index):
         if index < 1:
@@ -175,6 +178,7 @@ class Signal:
     k_event_current: float | None = None
     d_event_previous: float | None = None
     d_event_current: float | None = None
+    rsi_threshold: int = 30
 
 
 def entry_signal(candles):
@@ -207,7 +211,11 @@ def entry_signal(candles):
         previous_time = close_time
     rsis = rsi([candle.close for candle in candles])
     ks, ds = stochastic(candles)
-    events = match_events(rsis, ks, ds)
+    threshold = 30
+    events = match_events(rsis, ks, ds, threshold=threshold)
+    if events is None:
+        threshold = 20
+        events = match_events(rsis, ks, ds, threshold=threshold)
     if events is None:
         return None
     return Signal(
@@ -223,4 +231,5 @@ def entry_signal(candles):
         k_event_current=ks[events[1]],
         d_event_previous=ds[events[1] - 1],
         d_event_current=ds[events[1]],
+        rsi_threshold=threshold,
     )
