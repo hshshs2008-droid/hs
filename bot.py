@@ -27,13 +27,26 @@ WELCOME = (
     "يكتمل الشرطان في الشمعة نفسها أو شمعتين متتاليتين، بأي ترتيب.\n\n"
     "يجب أن يبقى RSI فوق مستوى العبور الخاص بالإشارة (30 أو 20) وK فوق D عند اكتمالها.\n"
     "مستوى إغلاق التقاطع غير مقيّد بـ20. عند انتظار RSI، تُلغى الإشارة إذا عاد أحد الخطين من 20 أو أعلى إلى تحت 20 عند الإغلاق التالي.\n\n"
-    "/alerts_on — تفعيل التنبيهات في محادثة خاصة\n"
-    "/alerts_off — إيقاف التنبيهات\n"
     "/status — حالة المراقبة\n"
     "/signals — جميع إشارات آخر 48 ساعة\n"
-    "/myid — رقم حسابك في تيليجرام\n"
     "التنبيهات تبدأ من الشموع التي تغلق بعد التفعيل."
 )
+
+
+def refresh_command_menu(token, admin_id):
+    commands = [
+        {"command": "signals", "description": "📋 إشارات آخر 48 ساعة"},
+        {"command": "status", "description": "🔎 حالة المراقبة والتنبيهات"},
+        {"command": "start", "description": "ℹ️ شرح البوت والشروط"},
+    ]
+    api(token, "setMyCommands", {"commands": commands})
+    if type(admin_id) is int and admin_id > 0:
+        admin_commands = [commands[0],
+            {"command": "report", "description": "📊 تقرير Excel"}, commands[1],
+            {"command": "requests", "description": "📩 طلبات الانضمام"},
+            {"command": "members", "description": "👥 إدارة المشتركين"}, commands[2]]
+        api(token, "setMyCommands", {"commands": admin_commands,
+            "scope": {"type": "chat", "chat_id": admin_id}})
 
 
 class TelegramError(Exception):
@@ -655,15 +668,7 @@ def main():
         reports = ReportService(ReportView(report_store, store), report_client, send_report_document, send_report_notice, stop)
         history.start_background()
         try:
-            api(token, "setMyCommands", {"commands": [
-                {"command": "start", "description": "شرح البوت والفلتر"},
-                {"command": "signals", "description": "عرض جميع إشارات آخر 48 ساعة"},
-                {"command": "alerts_on", "description": "تفعيل التنبيهات"},
-                {"command": "alerts_off", "description": "إيقاف التنبيهات"},
-                {"command": "status", "description": "حالة المراقبة والتنبيهات"},
-                {"command": "myid", "description": "عرض رقم حسابك في تيليجرام"},
-                {"command": "report", "description": "تقرير Excel للإشارات والأسعار — للمدير"},
-            ]})
+            refresh_command_menu(token, store.admin_id)
         except TelegramError as error:
             logger.warning("Command menu refresh failed; HTTP status=%s", error.status)
 

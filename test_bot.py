@@ -19,6 +19,20 @@ class OffsetStore:
 
 
 class BotTests(unittest.TestCase):
+    @patch('bot.api')
+    def test_command_menu_hides_removed_commands_and_scopes_admin_tools(self, api):
+        bot.refresh_command_menu('test-token', 100)
+        public = api.call_args_list[0].args[2]
+        private = api.call_args_list[1].args[2]
+        self.assertEqual([c['command'] for c in public['commands']],
+                         ['signals', 'status', 'start'])
+        self.assertEqual([c['command'] for c in private['commands']],
+                         ['signals', 'report', 'status', 'requests', 'members', 'start'])
+        self.assertEqual(private['scope'], {'type': 'chat', 'chat_id': 100})
+        api.reset_mock()
+        bot.refresh_command_menu('test-token', None)
+        self.assertEqual(api.call_count, 1)
+
     @patch("bot.api")
     def test_platform_link_opens_correct_tradingview_exchange_and_timeframe(self, api):
         from urllib.parse import urlparse, parse_qs
