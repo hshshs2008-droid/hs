@@ -13,6 +13,7 @@ class ReportViewTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'state.sqlite3'
             metadata = AlertStore(path)
+            metadata.configure_access(100)
             source = Mock()
             source.is_admin.return_value = True
             source.can_access.return_value = True
@@ -33,11 +34,11 @@ class ReportViewTests(unittest.TestCase):
                 self.assertEqual(len(visible), 6)
                 self.assertIn(rows[-2], visible)
                 self.assertIn(rows[-1], visible)
-                self.assertEqual(len(metadata._metadata('report_excluded_first99_v1:100', [])), 99)
+                self.assertEqual(len(metadata._metadata('report_excluded_legacy_global_v1', [])), 99)
             finally:
                 metadata.close()
 
-    def test_subscriber_gets_own_rows_without_owner_exclusions_and_revocation_blocks(self):
+    def test_subscriber_gets_own_new_rows_and_shared_exclusions_apply(self):
         from gate_runtime import ReportStore
         from daily_runtime import DailyReports
         store = AlertStore(':memory:')
@@ -45,9 +46,11 @@ class ReportViewTests(unittest.TestCase):
         store.configure_access(100)
         store.request_access(200, 'Subscriber', 1)
         store.decide_access(200, True, 2)
-        for chat, symbol in [(100, 'OWNERUSDT'), (200, 'MEMBERUSDT')]:
+        for chat, symbol in [(100, 'OWNERUSDT'), (200, 'OWNERUSDT'), (200, 'MEMBERUSDT')]:
             attempt = store.prepare_delivery(chat, symbol, 1000, '1', 2000, 'payload', 2000)
             store.confirm_delivery(attempt, chat, 2000, 2000)
+        store._set_metadata('report_excluded_first99_v1:100',
+                            [['binance', 'OWNERUSDT', 1000, '4h']])
         view = ReportView(DailyReports(ReportStore(store), []), store)
         self.assertEqual([r['symbol'] for r in view.report_rows(200)], ['MEMBERUSDT'])
         self.assertIsNone(store._metadata('report_excluded_first99_v1:200', None))

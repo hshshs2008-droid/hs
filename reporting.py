@@ -288,14 +288,27 @@ class ReportView:
         rows = sorted(self.source.report_rows(chat_id), key=lambda row: (
             row['signal_close_time'], str(_key_parts(_quote_key(row))[0]),
             row['symbol'], row.get('timeframe', '4h')))
-        if not self.is_admin(chat_id):
-            return rows
-        key = f'report_excluded_first99_v1:{chat_id}'
-        with self.metadata_store._lock:
-            excluded = self.metadata_store._metadata(key, None)
+        key = 'report_excluded_legacy_global_v1'
+        excluded = self.metadata_store._metadata(key, None)
+        if excluded is None:
+            admin_id = self.metadata_store.admin_id
+            if type(admin_id) is not int or admin_id <= 0:
+                raise ValueError('Owner identity required to initialize legacy exclusions.')
+            # Migrate the exact frozen identities already hidden from the owner.
+            excluded = self.metadata_store._metadata(
+                f'report_excluded_first99_v1:{admin_id}', None)
             if excluded is None:
-                excluded = [self._identity(row) for row in rows[:self.exclude_first]]
-                self.metadata_store._set_metadata(key, excluded)
+                owner_rows = sorted(self.source.report_rows(admin_id), key=lambda row: (
+                    row['signal_close_time'], str(_key_parts(_quote_key(row))[0]),
+                    row['symbol'], row.get('timeframe', '4h')))
+                excluded = [self._identity(row) for row in owner_rows[:self.exclude_first]]
+            # Fetch source rows before locking metadata to avoid cross-store lock inversion.
+            with self.metadata_store._lock:
+                saved = self.metadata_store._metadata(key, None)
+                if saved is None:
+                    self.metadata_store._set_metadata(key, excluded)
+                else:
+                    excluded = saved
         excluded = {tuple(identity) for identity in excluded}
         return [row for row in rows if self._identity(row) not in excluded]
 
