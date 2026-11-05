@@ -20,6 +20,7 @@ class ReportViewTests(unittest.TestCase):
             rows = [dict(symbol='BTCUSDT', signal_close_time=i, timeframe='4h',
                          quote_key=('binance', 'BTCUSDT')) for i in range(1, 104)]
             source.report_rows.return_value = rows
+            source.shared_report_rows.return_value = rows
             view = ReportView(source, metadata)
             self.assertEqual([r['signal_close_time'] for r in view.report_rows(100)], [100,101,102,103])
             self.assertEqual(len(rows), 103)
@@ -54,7 +55,7 @@ class ReportViewTests(unittest.TestCase):
         view = ReportView(DailyReports(ReportStore(store), []), store)
         self.assertEqual([r['symbol'] for r in view.report_rows(200)], ['MEMBERUSDT'])
         self.assertIsNone(store._metadata('report_excluded_first99_v1:200', None))
-        self.assertEqual(view.report_rows(100), [])
+        self.assertEqual([r['symbol'] for r in view.report_rows(100)], ['MEMBERUSDT'])
         store.revoke_access(200)
         self.assertFalse(view.can_access(200))
         self.assertEqual(view.report_rows(200), [])

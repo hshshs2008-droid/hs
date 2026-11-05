@@ -29,7 +29,7 @@ WELCOME = (
     "مستوى إغلاق التقاطع غير مقيّد بـ20. عند انتظار RSI، تُلغى الإشارة إذا عاد أحد الخطين من 20 أو أعلى إلى تحت 20 عند الإغلاق التالي.\n\n"
     "/status — حالة المراقبة\n"
     "/signals — جميع إشارات آخر 48 ساعة\n"
-    "/report — تقرير Excel لإشاراتك وأسعارها\n"
+    "/report — تقرير Excel لسجل التوصيات الموحّد\n"
     "التنبيهات تبدأ من الشموع التي تغلق بعد التفعيل."
 )
 
@@ -315,7 +315,7 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
             return
         reply = "إعداد التقارير غير متاح الآن؛ حاول لاحقاً."
         if reports is not None:
-            reply = "جارٍ تجهيز تقرير Excel لسجل الإشارات المرسلة إليك، مع الأسعار الحالية ونسبة التغيّر."
+            reply = "جارٍ تجهيز تقرير Excel لسجل التوصيات الموحّد، مع الأسعار الحالية ونسبة التغيّر."
         api(token, "sendMessage", {"chat_id": chat["id"], "text": reply})
         if reports is not None:
             reports.request(chat["id"])

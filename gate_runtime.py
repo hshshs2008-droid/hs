@@ -179,6 +179,15 @@ class ReportStore:
                             for row in store.report_rows(chat_id))
         return sorted(rows, key=lambda row: (row['signal_close_time'], row['exchange_name'], row['symbol']))
 
+    def shared_report_rows(self):
+        rows = []
+        for key, name, store in (('binance', 'Binance Spot', self.main_store),
+                                 ('gate', 'Gate.io Spot', self.gate_store)):
+            if store is not None:
+                rows.extend(dict(row, exchange_name=name, quote_key=(key, row['symbol']))
+                            for row in store.shared_report_rows())
+        return sorted(rows, key=lambda row: (row['signal_close_time'], row['exchange_name'], row['symbol']))
+
     def get_ledger_started_at_ms(self):
         timestamps = [store.get_ledger_started_at_ms() for store in (self.main_store, self.gate_store)
                       if store is not None]

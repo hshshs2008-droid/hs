@@ -366,6 +366,25 @@ class AlertStore:
                 results.append(row)
         return results
 
+    def shared_report_rows(self):
+        """One confirmed recommendation per symbol/close, without recipient data."""
+        with self._lock:
+            cursor = self._db.execute("""
+                SELECT symbol, signal_close_time, quote_price, quote_at_ms,
+                       telegram_sent_at_ms
+                FROM (
+                    SELECT *, ROW_NUMBER() OVER (
+                        PARTITION BY symbol, signal_close_time
+                        ORDER BY COALESCE(telegram_sent_at_ms, confirmed_at_ms),
+                                 attempted_at_ms, attempt_id
+                    ) AS recommendation_rank
+                    FROM delivery_ledger WHERE status = 'sent'
+                ) WHERE recommendation_rank = 1
+                ORDER BY signal_close_time, symbol
+            """)
+            names = [column[0] for column in cursor.description]
+            return [dict(zip(names, row)) for row in cursor.fetchall()]
+
     def get_ledger_started_at_ms(self):
         return self._metadata('delivery_ledger_started_at_ms', None)
 

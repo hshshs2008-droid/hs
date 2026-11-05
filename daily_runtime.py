@@ -26,6 +26,15 @@ class DailyReports:
         return sorted(rows, key=lambda row: (row['signal_close_time'],
                       row['exchange_name'], row['symbol'], row.get('timeframe', '4h')))
 
+    def shared_report_rows(self):
+        rows = self.primary.shared_report_rows()
+        for source, store in self.daily:
+            rows.extend(dict(row, timeframe='1D', exchange_name=store.exchange_name,
+                             quote_key=(source, row['symbol']))
+                        for row in store.shared_report_rows())
+        return sorted(rows, key=lambda row: (row['signal_close_time'],
+                      row['exchange_name'], row['symbol'], row.get('timeframe', '4h')))
+
     def get_ledger_started_at_ms(self):
         values = [self.primary.get_ledger_started_at_ms()]
         values.extend(store.get_ledger_started_at_ms() for _, store in self.daily)

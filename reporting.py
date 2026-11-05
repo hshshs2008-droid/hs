@@ -1,4 +1,4 @@
-"""Recipient-private delivery-price reports using standard-library XLSX generation."""
+"""Shared recommendation reports using standard-library XLSX generation."""
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, localcontext
@@ -174,7 +174,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
     ``quotes`` maps a row's quote_key (or legacy symbol) to
     ``{'price': decimal-string-or-None, 'at_ms': ms}``. Source-qualified keys
     keep Gate.io and Binance prices separate even for the same coin.
-    Entry prices are exactly those recorded for that recipient's Telegram delivery.
+    Entry prices use the first confirmed delivery of each shared recommendation.
     """
     rows = sorted(rows, key=lambda row: (row['signal_close_time'],
                                         str(_key_parts(_quote_key(row))[0]), row['symbol']))
@@ -209,14 +209,14 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('بدء حفظ أسعار الإرسال', _label(ledger_started_at_ms)),
                 ('إشارات بدون سعر إرسال مسجل', missing_entry),
                 ('إشارات تعذر جلب سعرها الحالي', missing_current),
-                ('نطاق السجل', 'الإشارات المرسلة المسجلة لهذا المستلم والمشمولة بالتقرير بعد الاستبعادات المحفوظة، دون حد 48 ساعة.'),
+                ('نطاق السجل', 'سجل توصيات موحّد لجميع المشتركين، يشمل ما قبل الانضمام بعد الاستبعادات المحفوظة، دون حد 48 ساعة.'),
                 ('تاريخ ووقت التوصية', 'وقت إغلاق شمعة الفريم المذكور (4h أو 1D) التي أكملت الإشارة، وفق التوقيت المحلي المضبوط للبوت مع التوقيت الصيفي والشتوي.'),
-                ('سعر الإشارة', 'السعر الفعلي الظاهر عند إرسال الرسالة؛ قد يختلف وقت الإرسال عن وقت شمعة الإشارة.'),
+                ('سعر الإشارة', 'السعر المسجل عند أول إرسال مؤكد للتوصية، وهو المرجع المشترك للجميع؛ قد يختلف عن السعر في رسالة مستلم لاحق.'),
                 ('نسبة التغير', '(السعر الحالي ÷ السعر وقت الإرسال − 1) × 100؛ ليست نتيجة صفقة منفذة ولا تشمل الرسوم.'),
                 ('الأسعار الحالية', 'لقطة سعر واحدة لكل عملة على منصتها عند تجهيز التقرير؛ أوقات جلبها موضحة أدناه، وليست جميعها في اللحظة نفسها.'),
                 ('الأسعار القديمة', 'غير مسجل تعني عدم حفظ السعر الأصلي؛ لا يتم تخمينه أو استبداله بسعر الشمعة.'),
                 ('الدقة', 'قد يقرّب Excel الخلايا الرقمية إلى 15 رقماً معنوياً؛ النصوص الأصلية الكاملة محفوظة أدناه.'),
-                ('تكرار الإرسال', 'صف واحد لكل توصية تلقاها هذا المستلم؛ عند تكرار التسليم تُستخدم أول رسالة مؤكدة.'),
+                ('تكرار الإرسال', 'صف واحد لكل توصية على المنصة والفريم والإغلاق؛ سعرها المرجعي مأخوذ من أول إرسال مؤكد لأي مستلم.'),
                 ('حدود السجل', 'قد لا تظهر إشارات قديمة حُذفت سجلات إرسالها قبل تفعيل حفظ السجل الدائم.'),
                 ('تأكيد الإرسال', 'يعتمد التقرير على تأكيدات Telegram؛ المحاولات غير المؤكدة لا تدخل الحسابات. أول إرسال مؤكد قد يختلف عن أول وصول فعلي إذا فُقد رد Telegram.'),
                 ('', ''), ('تفاصيل أسعار الإرسال الأصلية', '')]
@@ -285,7 +285,7 @@ class ReportView:
     def report_rows(self, chat_id):
         if not self.can_access(chat_id):
             return []
-        rows = sorted(self.source.report_rows(chat_id), key=lambda row: (
+        rows = sorted(self.source.shared_report_rows(), key=lambda row: (
             row['signal_close_time'], str(_key_parts(_quote_key(row))[0]),
             row['symbol'], row.get('timeframe', '4h')))
         key = 'report_excluded_legacy_global_v1'
