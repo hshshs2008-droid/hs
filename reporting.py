@@ -1,4 +1,4 @@
-"""Owner-only delivery-price reports using standard-library XLSX generation."""
+"""Recipient-private delivery-price reports using standard-library XLSX generation."""
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, localcontext
@@ -268,6 +268,9 @@ class ReportView:
         self.metadata_store = metadata_store
         self.exclude_first = exclude_first
 
+    def can_access(self, chat_id):
+        return self.source.can_access(chat_id)
+
     def is_admin(self, chat_id):
         return self.source.is_admin(chat_id)
 
@@ -280,11 +283,13 @@ class ReportView:
         return (source, symbol, row['signal_close_time'], row.get('timeframe', '4h'))
 
     def report_rows(self, chat_id):
-        if not self.is_admin(chat_id):
+        if not self.can_access(chat_id):
             return []
         rows = sorted(self.source.report_rows(chat_id), key=lambda row: (
             row['signal_close_time'], str(_key_parts(_quote_key(row))[0]),
             row['symbol'], row.get('timeframe', '4h')))
+        if not self.is_admin(chat_id):
+            return rows
         key = f'report_excluded_first99_v1:{chat_id}'
         with self.metadata_store._lock:
             excluded = self.metadata_store._metadata(key, None)
@@ -296,7 +301,7 @@ class ReportView:
 
 
 class ReportService:
-    """One owner-only worker; generation never blocks Telegram polling."""
+    """One approved-recipient worker; generation never blocks Telegram polling."""
 
     def __init__(self, store, client, send_document, send_notice, stop_event,
                  *, clock=time.time, request_delay=0.15):
@@ -312,7 +317,7 @@ class ReportService:
         self.heartbeat_ms = 0
 
     def request(self, chat_id):
-        if not self.store.is_admin(chat_id):
+        if not self.store.can_access(chat_id):
             return False
         with self._condition:
             if self.stop.is_set() or chat_id in self._waiting or chat_id in self._active:
@@ -336,7 +341,7 @@ class ReportService:
             thread.join(timeout)
 
     def _send(self, function, chat_id, *args):
-        while not self.stop.is_set() and self.store.is_admin(chat_id):
+        while not self.stop.is_set() and self.store.can_access(chat_id):
             try:
                 function(chat_id, *args)
                 return True
@@ -348,7 +353,7 @@ class ReportService:
         return False
 
     def _generate(self, chat_id):
-        if not self.store.is_admin(chat_id):
+        if not self.store.can_access(chat_id):
             return
         rows = self.store.report_rows(chat_id)
         if not rows:
@@ -360,7 +365,7 @@ class ReportService:
         keys = {_quote_key(row) for row in rows}
         for key in sorted(keys, key=lambda value: tuple(str(part) for part in _key_parts(value))):
             source, _ = _key_parts(key)
-            if self.stop.is_set() or not self.store.is_admin(chat_id):
+            if self.stop.is_set() or not self.store.can_access(chat_id):
                 return
             if source in blocked_sources:
                 quotes[key] = {'price': None, 'at_ms': None}
@@ -379,7 +384,7 @@ class ReportService:
                 logger.warning('Report quote unavailable; source=%s HTTP status=%s',
                                'gate' if source == 'gate' else 'binance', error.status)
             self.heartbeat_ms = int(self.clock() * 1000)
-        if self.stop.is_set() or not self.store.is_admin(chat_id):
+        if self.stop.is_set() or not self.store.can_access(chat_id):
             return
         generated = int(self.clock() * 1000)
         document = build_report(rows, quotes, generated, self.store.get_ledger_started_at_ms())

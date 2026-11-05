@@ -128,16 +128,19 @@ class ReportBotTests(unittest.TestCase):
         self.assertEqual(self.store.report_rows(200)[0]['quote_price'], '1.01')
 
     @patch('bot.api')
-    def test_report_is_owner_only_even_for_approved_users_and_forwarded_identity(self, api):
+    def test_report_allows_approved_users_but_rejects_unapproved_or_spoofed_identity(self, api):
         self.store.request_access(200, 'Visitor', 10)
         self.store.decide_access(200, True, 20)
         reports = Mock()
-        for kwargs in ({'user': 200}, {'user': -100, 'kind': 'group', 'sender': 100},
+        for kwargs in ({'user': 300}, {'user': -100, 'kind': 'group', 'sender': 100},
                        {'user': 100, 'sender': 200}):
             self.command(reports=reports, **kwargs)
         reports.request.assert_not_called()
         self.command(reports=reports)
         reports.request.assert_called_once_with(100)
+        reports.reset_mock()
+        self.command(reports=reports, user=200)
+        reports.request.assert_called_once_with(200)
 
     @patch('bot.api')
     def test_failed_ack_does_not_schedule_report(self, api):
@@ -195,6 +198,7 @@ class ReportBotTests(unittest.TestCase):
         store = Mock()
         store.admin_id = 100
         store.is_admin.return_value = True
+        store.can_access.return_value = True
         store.get_update_offset.return_value = 0
         store.status.return_value = {'state': 'ready'}
         worker = Mock()

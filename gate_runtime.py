@@ -164,6 +164,9 @@ class ReportStore:
     def __init__(self, main_store, gate_store=None):
         self.main_store, self.gate_store = main_store, gate_store
 
+    def can_access(self, chat_id):
+        return self.main_store.can_access(chat_id)
+
     def is_admin(self, chat_id):
         return self.main_store.is_admin(chat_id)
 

@@ -15,6 +15,7 @@ class ReportViewTests(unittest.TestCase):
             metadata = AlertStore(path)
             source = Mock()
             source.is_admin.return_value = True
+            source.can_access.return_value = True
             rows = [dict(symbol='BTCUSDT', signal_close_time=i, timeframe='4h',
                          quote_key=('binance', 'BTCUSDT')) for i in range(1, 104)]
             source.report_rows.return_value = rows
@@ -36,9 +37,28 @@ class ReportViewTests(unittest.TestCase):
             finally:
                 metadata.close()
 
+    def test_subscriber_gets_own_rows_without_owner_exclusions_and_revocation_blocks(self):
+        from gate_runtime import ReportStore
+        from daily_runtime import DailyReports
+        store = AlertStore(':memory:')
+        self.addCleanup(store.close)
+        store.configure_access(100)
+        store.request_access(200, 'Subscriber', 1)
+        store.decide_access(200, True, 2)
+        for chat, symbol in [(100, 'OWNERUSDT'), (200, 'MEMBERUSDT')]:
+            attempt = store.prepare_delivery(chat, symbol, 1000, '1', 2000, 'payload', 2000)
+            store.confirm_delivery(attempt, chat, 2000, 2000)
+        view = ReportView(DailyReports(ReportStore(store), []), store)
+        self.assertEqual([r['symbol'] for r in view.report_rows(200)], ['MEMBERUSDT'])
+        self.assertIsNone(store._metadata('report_excluded_first99_v1:200', None))
+        self.assertEqual(view.report_rows(100), [])
+        store.revoke_access(200)
+        self.assertFalse(view.can_access(200))
+        self.assertEqual(view.report_rows(200), [])
+
     def test_unapproved_user_cannot_initialize_or_read_report_filter(self):
         source, metadata = Mock(), Mock()
-        source.is_admin.return_value = False
+        source.can_access.return_value = False
         self.assertEqual(ReportView(source, metadata).report_rows(101), [])
         source.report_rows.assert_not_called()
         metadata._set_metadata.assert_not_called()

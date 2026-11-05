@@ -11,6 +11,9 @@ class DailyReports:
     def __init__(self, primary, daily):
         self.primary, self.daily = primary, daily
 
+    def can_access(self, chat_id):
+        return self.primary.can_access(chat_id)
+
     def is_admin(self, chat_id):
         return self.primary.is_admin(chat_id)
 

@@ -29,6 +29,7 @@ WELCOME = (
     "مستوى إغلاق التقاطع غير مقيّد بـ20. عند انتظار RSI، تُلغى الإشارة إذا عاد أحد الخطين من 20 أو أعلى إلى تحت 20 عند الإغلاق التالي.\n\n"
     "/status — حالة المراقبة\n"
     "/signals — جميع إشارات آخر 48 ساعة\n"
+    "/report — تقرير Excel لإشاراتك وأسعارها\n"
     "التنبيهات تبدأ من الشموع التي تغلق بعد التفعيل."
 )
 
@@ -36,15 +37,15 @@ WELCOME = (
 def refresh_command_menu(token, admin_id):
     commands = [
         {"command": "signals", "description": "📋 إشارات آخر 48 ساعة"},
+        {"command": "report", "description": "📊 تقرير Excel"},
         {"command": "status", "description": "🔎 حالة المراقبة والتنبيهات"},
         {"command": "start", "description": "ℹ️ شرح البوت والشروط"},
     ]
     api(token, "setMyCommands", {"commands": commands})
     if type(admin_id) is int and admin_id > 0:
-        admin_commands = [commands[0],
-            {"command": "report", "description": "📊 تقرير Excel"}, commands[1],
+        admin_commands = [*commands[:3],
             {"command": "requests", "description": "📩 طلبات الانضمام"},
-            {"command": "members", "description": "👥 إدارة المشتركين"}, commands[2]]
+            {"command": "members", "description": "👥 إدارة المشتركين"}, commands[3]]
         api(token, "setMyCommands", {"commands": admin_commands,
             "scope": {"type": "chat", "chat_id": admin_id}})
 
@@ -306,11 +307,11 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
     if command == "/report":
         sender = message.get("from", {})
         allowed = (store is not None and isinstance(chat, dict) and chat.get("type") == "private"
-                   and isinstance(sender, dict) and store.is_admin(sender.get("id")) is True
+                   and isinstance(sender, dict) and store.can_access(sender.get("id")) is True
                    and type(chat.get("id")) is int and chat["id"] == sender.get("id"))
         if not allowed:
             if isinstance(chat, dict) and type(chat.get("id")) is int:
-                api(token, "sendMessage", {"chat_id": chat["id"], "text": "تقرير Excel متاح للمدير فقط في محادثة خاصة."})
+                api(token, "sendMessage", {"chat_id": chat["id"], "text": "تقرير Excel متاح للمشتركين المعتمدين في محادثة خاصة."})
             return
         reply = "إعداد التقارير غير متاح الآن؛ حاول لاحقاً."
         if reports is not None:
@@ -389,7 +390,7 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
             reply = reply.replace("أراقب أزواج USDT في Binance Spot على فريمي 4h و1D ⏳.",
                                   "أراقب القائمة المعتمدة من CoinMarketCap على Binance Spot وGate.io Spot، مقابل USDT وعلى فريمي 4h و1D ⏳.")
         if store is not None and store.access_required() is True and store.is_admin(chat["id"]):
-            reply += "\n\nإدارة الاشتراكات:\n/requests — طلبات الانضمام\n/members — المشتركون وسحب الصلاحية\n/approve مع رقم الحساب — الموافقة على طلب سبق رفضه\n/report — تقرير Excel للإشارات والأسعار"
+            reply += "\n\nإدارة الاشتراكات:\n/requests — طلبات الانضمام\n/members — المشتركون وسحب الصلاحية\n/approve مع رقم الحساب — الموافقة على طلب سبق رفضه"
         api(token, "sendMessage", {"chat_id": message["chat"]["id"], "text": reply})
     elif command in ("/alerts_on", "/alerts_off", "/status", "/signals") and store is not None:
         chat = message["chat"]
@@ -619,15 +620,15 @@ def main():
         def send_report_document(chat_id, content, filename, caption):
             nonlocal next_message_at
             with delivery_lock:
-                if not store.is_admin(chat_id):
-                    raise AlertDeliveryError("التقرير متاح للمدير فقط.", status=403)
+                if not store.can_access(chat_id):
+                    raise AlertDeliveryError("التقرير متاح للمشتركين المعتمدين فقط.", status=403)
                 remaining = store.get_delivery_blocked_until() - time.time()
                 if remaining > 0:
                     raise AlertDeliveryError("الإرسال ينتظر مهلة تيليجرام.", status=429, retry_after=remaining)
                 if stop.wait(max(0, next_message_at - time.monotonic())):
                     raise AlertDeliveryError("توقف إرسال التقرير.")
-                if not store.is_admin(chat_id):
-                    raise AlertDeliveryError("التقرير متاح للمدير فقط.", status=403)
+                if not store.can_access(chat_id):
+                    raise AlertDeliveryError("التقرير متاح للمشتركين المعتمدين فقط.", status=403)
                 next_message_at = time.monotonic() + 1.05
                 store.set_next_delivery_at(time.time() + 1.05)
                 try:
@@ -638,8 +639,8 @@ def main():
                     raise AlertDeliveryError(str(error), status=error.status, retry_after=error.retry_after) from None
 
         def send_report_notice(chat_id, text):
-            if not store.is_admin(chat_id):
-                raise AlertDeliveryError("التقرير متاح للمدير فقط.", status=403)
+            if not store.can_access(chat_id):
+                raise AlertDeliveryError("التقرير متاح للمشتركين المعتمدين فقط.", status=403)
             return send_alert(chat_id, text)
 
         scanner = Scanner(client, store, send_alert, send_signal=send_live_signal)

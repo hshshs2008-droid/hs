@@ -25,7 +25,7 @@ class BotTests(unittest.TestCase):
         public = api.call_args_list[0].args[2]
         private = api.call_args_list[1].args[2]
         self.assertEqual([c['command'] for c in public['commands']],
-                         ['signals', 'status', 'start'])
+                         ['signals', 'report', 'status', 'start'])
         self.assertEqual([c['command'] for c in private['commands']],
                          ['signals', 'report', 'status', 'requests', 'members', 'start'])
         self.assertEqual(private['scope'], {'type': 'chat', 'chat_id': 100})

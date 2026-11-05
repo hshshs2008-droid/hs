@@ -166,7 +166,7 @@ class ServiceTests(unittest.TestCase):
     def setUp(self):
         self.stop = threading.Event()
         self.store = Mock()
-        self.store.is_admin.side_effect = lambda chat: chat == 100
+        self.store.can_access.side_effect = lambda chat: chat == 100
         self.store.report_rows.return_value = [row(), row(close=NOW-1000), row('ETHUSDT', '2')]
         self.store.get_ledger_started_at_ms.return_value = NOW-10000
         self.client = Mock()
@@ -233,7 +233,7 @@ class ServiceTests(unittest.TestCase):
 
     def test_owner_change_during_generation_prevents_document_delivery(self):
         def transfer_owner(symbol):
-            self.store.is_admin.side_effect = lambda chat: False
+            self.store.can_access.side_effect = lambda chat: False
             return '1'
         self.client.latest_price.side_effect = transfer_owner
         self.service._generate(100)
