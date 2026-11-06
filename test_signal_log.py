@@ -18,7 +18,9 @@ class SignalLogTests(unittest.TestCase):
         text=send.call_args.args[1]
         self.assertLess(text.index('OLDUSDT'),text.index('NEWUSDT'))
         self.assertNotIn('EXPIRED',text)
-        self.assertIn('1D | Gate.io',text)
+        self.assertIn('1D | <a href=',text)
+        self.assertIn('symbol=GATEIO%3AOLDUSDT&amp;interval=D',text)
+        self.assertIn('symbol=GATEIO%3ANEWUSDT&amp;interval=240',text)
         self.assertIn('?start=sig_',text)
         self.assertNotIn('Spot',text)
         self.assertFalse(log.start_background())

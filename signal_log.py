@@ -4,6 +4,7 @@ import json
 import time
 from datetime import datetime
 from html import escape
+from urllib.parse import urlencode
 from alerts import DISPLAY_TZ
 
 
@@ -44,7 +45,13 @@ class SignalLog:
             label = 'Binance' if source == 'binance' else 'Gate.io'
             link = f'https://t.me/{self.username}?start=sig_{self.key(row)}'
             visible = f'✅ {symbol.replace("_", "")} | {frame} | {label} | {stamp:%d/%m} | {stamp:%H:%M}\n'
-            line = f'<a href="{link}">✅</a>' + escape(visible[1:])
+            ticker = symbol[:-5] + 'USDT' if symbol.endswith('_USDT') else symbol
+            chart = 'https://www.tradingview.com/chart/?' + urlencode({
+                'symbol': ('BINANCE' if source == 'binance' else 'GATEIO') + ':' + ticker,
+                'interval': 'D' if frame == '1D' else '240'})
+            line = (f'<a href="{link}">✅</a> {escape(symbol.replace("_", ""))} | {frame} | '
+                    f'<a href="{escape(chart, quote=True)}">{label}</a> | '
+                    f'{stamp:%d/%m} | {stamp:%H:%M}\n')
             line_size = len(visible.encode('utf-16-le')) // 2
             # Telegram limits rendered text, not hidden link targets or markup.
             if page_size + line_size > 4096:
