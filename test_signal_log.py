@@ -25,6 +25,32 @@ class SignalLogTests(unittest.TestCase):
         view.can_access.return_value=False
         send.reset_mock(); log.request(100); send.assert_not_called()
 
+    def test_pagination_counts_visible_text_and_preserves_all_links(self):
+        from html import unescape
+        import re
+        view, send, api = Mock(), Mock(), Mock()
+        view.can_access.return_value = True
+        api.return_value = {'username': 'testbot'}
+        now = 1000000000
+        for count in (30, 200):
+            send.reset_mock()
+            view.report_rows.return_value = [dict(symbol=f'COIN{i:03d}_USDT',
+                quote_key=('gate', f'COIN{i:03d}_USDT'), signal_close_time=now-1,
+                telegram_sent_at_ms=now-count+i, timeframe='4h') for i in range(count)]
+            log = SignalLog(view, {}, send, api, 'token')
+            with patch('signal_log.time.time', return_value=now/1000):
+                log.request(100)
+            pages = [call.args[1] for call in send.call_args_list]
+            self.assertEqual(sum(p.count('?start=sig_') for p in pages), count)
+            for page in pages:
+                visible = unescape(re.sub('<[^>]+>', '', page))
+                self.assertLessEqual(len(visible.encode('utf-16-le'))//2, 4096)
+            if count == 30:
+                self.assertEqual(len(pages), 1)
+                self.assertGreater(len(pages[0]), 3500)
+            else:
+                self.assertGreater(len(pages), 1)
+
     def test_detail_replies_only_to_requesters_original_and_new_member_gets_details(self):
         store=AlertStore(':memory:'); self.addCleanup(store.close)
         attempt=store.prepare_delivery(100,'BTCUSDT',1000,'1',2000,'📈 BTCUSDT\n📊 RSI (14): 29 → 31\n📊 Last alert: private',2000)

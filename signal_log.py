@@ -36,15 +36,22 @@ class SignalLog:
             self.username = self.api(self.token, 'getMe', {})['username']
         header = '📊 إشارات آخر 48 ساعة\nمرتبة حسب أول إرسال • الأوقات لإغلاق الشموع\n\n'
         pages, page = [], header
+        header_size = len(header.encode("utf-16-le")) // 2
+        page_size = header_size
         for row in rows:
             stamp = datetime.fromtimestamp((row['signal_close_time']+1)/1000, DISPLAY_TZ)
             source, symbol, _, frame = self.identity(row)
             label = 'Binance' if source == 'binance' else 'Gate.io'
             link = f'https://t.me/{self.username}?start=sig_{self.key(row)}'
-            line = f'<a href="{link}">✅</a> {escape(symbol.replace("_", ""))} | {frame} | {label} | {stamp:%d/%m} | {stamp:%H:%M}\n'
-            if len((page+line).encode('utf-16-le'))//2 > 3500:
-                pages.append(page); page = header
+            visible = f'✅ {symbol.replace("_", "")} | {frame} | {label} | {stamp:%d/%m} | {stamp:%H:%M}\n'
+            line = f'<a href="{link}">✅</a>' + escape(visible[1:])
+            line_size = len(visible.encode('utf-16-le')) // 2
+            # Telegram limits rendered text, not hidden link targets or markup.
+            if page_size + line_size > 4096:
+                pages.append(page)
+                page, page_size = header, header_size
             page += line
+            page_size += line_size
         pages.append(page if rows else header+'لا توجد توصيات مرسلة خلال آخر 48 ساعة.')
         for page in pages:
             if not self.view.can_access(chat):
