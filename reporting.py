@@ -19,7 +19,7 @@ REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 PACKAGE_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
 CONTENT_NS = 'http://schemas.openxmlformats.org/package/2006/content-types'
 HEADERS = ('مسلسل', 'العملة', 'المنصة', 'تاريخ التوصية', 'وقت التوصية', 'الفريم',
-           'السعر وقت الإشارة (عند الإرسال) USDT', 'السعر الحالي USDT', 'التغير %')
+           'السعر وقت الإشارة (عند الإرسال) USDT', 'السعر الحالي USDT', 'التغير %', 'أعلى سعر بعد الإرسال*', 'أقصى ارتفاع %*')
 REPORT_ERROR = 'تعذر تجهيز تقرير Excel الآن؛ أعد /report لاحقاً.'
 MAX_DOCUMENT_BYTES = 45 * 1024 * 1024
 
@@ -169,7 +169,7 @@ def _styles():
 
 
 def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
-    """Create a private nine-column report of confirmed sends, not filter scans.
+    """Create a shared eleven-column report of confirmed sends, not filter scans.
 
     ``quotes`` maps a row's quote_key (or legacy symbol) to
     ``{'price': decimal-string-or-None, 'at_ms': ms}``. Source-qualified keys
@@ -201,8 +201,18 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
             values.append((change, 4 if change > 0 else 5 if change < 0 else 3, True))
         else:
             values.append(('غير محسوب', 0, False))
+        peak = _price(row.get('peak', {}).get('price'))
+        values.append((peak if peak is not None else 'بيانات غير مكتملة', 2 if peak is not None else 0, peak is not None))
+        if peak is not None and entry is not None:
+            with localcontext() as context:
+                context.prec = 80
+                best = peak / entry - 1
+            values.append((best, 4 if best > 0 else 5 if best < 0 else 3, True))
+        else:
+            values.append(('غير محسوب', 0, False))
         main.append(values)
     metadata = [('البند', 'القيمة'),
+                ('* نطاق القمة', 'تقدير محافظ من أول دقيقة كاملة بعد الإرسال حتى آخر دقيقة مكتملة وقت التقرير. لا يشمل ثواني البداية أو الدقيقة المفتوحة؛ ليس ربحًا محققًا. البيانات الناقصة لا تنتج نسبة.'),
                 ('وقت إنشاء التقرير', _label(generated_at_ms)),
                 ('وقت إنشاء التقرير UTC', _label(generated_at_ms, utc=True)),
                 ('عدد الإشارات المرسلة المسجلة', len(rows)),
@@ -221,6 +231,8 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('تأكيد الإرسال', 'يعتمد التقرير على تأكيدات Telegram؛ المحاولات غير المؤكدة لا تدخل الحسابات. أول إرسال مؤكد قد يختلف عن أول وصول فعلي إذا فُقد رد Telegram.'),
                 ('', ''), ('تفاصيل أسعار الإرسال الأصلية', '')]
     for index, row in enumerate(rows, 1):
+        metadata.append((f'{index}. بداية تغطية القمة UTC', _label(row.get('peak', {}).get('start'), utc=True)))
+        metadata.append((f'{index}. نهاية تغطية القمة UTC', _label(row.get('peak', {}).get('through'), utc=True)))
         metadata.append((f"{index}. {_row_coin(row)} — سعر الإرسال الأصلي", row.get('quote_price') or 'غير مسجل'))
         metadata.append((f'{index}. {_row_coin(row)} — وقت جلب سعر الإرسال UTC', _label(row.get('quote_at_ms'), utc=True)))
         metadata.append((f'{index}. {_row_coin(row)} — وقت رسالة Telegram UTC', _label(row.get('telegram_sent_at_ms'), utc=True)))
@@ -255,7 +267,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                                   ('xl/workbook.xml', workbook), ('xl/_rels/workbook.xml.rels', relationships)):
             archive.writestr(filename, ET.tostring(element, encoding='utf-8', xml_declaration=True))
         archive.writestr('xl/styles.xml', _styles())
-        archive.writestr('xl/worksheets/sheet1.xml', _worksheet(main, (10, 24, 16, 18, 16, 12, 30, 25, 18), autofilter=True))
+        archive.writestr('xl/worksheets/sheet1.xml', _worksheet(main, (10, 24, 16, 18, 16, 12, 30, 25, 18, 28, 22), autofilter=True))
         archive.writestr('xl/worksheets/sheet2.xml', _worksheet(info, (46, 110)))
     return output.getvalue()
 
@@ -317,9 +329,10 @@ class ReportService:
     """One approved-recipient worker; generation never blocks Telegram polling."""
 
     def __init__(self, store, client, send_document, send_notice, stop_event,
-                 *, clock=time.time, request_delay=0.15):
+                 *, clock=time.time, request_delay=0.15, peak_provider=None):
         if request_delay < 0:
             raise ValueError('Report request delay must be nonnegative.')
+        self.peak_provider = peak_provider
         self.store, self.client = store, client
         self.send_document, self.send_notice = send_document, send_notice
         self.stop, self.clock, self.request_delay = stop_event, clock, request_delay
@@ -400,12 +413,25 @@ class ReportService:
         if self.stop.is_set() or not self.store.can_access(chat_id):
             return
         generated = int(self.clock() * 1000)
+        if self.peak_provider is not None:
+            for row in rows:
+                if self.stop.is_set() or not self.store.can_access(chat_id):
+                    return
+                source, symbol = _key_parts(_quote_key(row))
+                if source in blocked_sources:
+                    row['peak'] = {'error': 'مصدر البيانات غير متاح'}
+                    continue
+                try:
+                    row['peak'] = self.peak_provider.measure(source, symbol, row.get('telegram_sent_at_ms'), generated)
+                except MarketError as error:
+                    row['peak'] = {'error': 'بيانات غير مكتملة'}
+                    if error.status in (418,429,403,451): blocked_sources.add(source)
         document = build_report(rows, quotes, generated, self.store.get_ledger_started_at_ms())
         if len(document) > MAX_DOCUMENT_BYTES:
             self._send(self.send_notice, chat_id, 'حجم تقرير Excel تجاوز حد الإرسال؛ يلزم تصدير السجل على أجزاء.')
             return
         filename = 'signals-report-' + datetime.fromtimestamp(generated / 1000, timezone.utc).strftime('%Y%m%d-%H%M%S') + '.xlsx'
-        caption = ('تقرير الإشارات المرسلة وأسعارها الحالية. النسبة محسوبة من السعر المسجل عند الإرسال. '
+        caption = ('تقرير التوصيات والأسعار الحالية وأقصى ارتفاع ضمن الدقائق المكتملة بعد الإرسال. القمة تقدير محافظ وليست ربحًا محققًا. '
                    'الأسعار غير المسجلة أو غير المتاحة موضحة داخل الملف.')
         self._send(self.send_document, chat_id, document, filename, caption)
 

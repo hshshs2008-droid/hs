@@ -63,7 +63,7 @@ class WorkbookTests(unittest.TestCase):
             tree = ET.fromstring(archive.read('xl/worksheets/sheet1.xml'))
             self.assertEqual(tree.find('s:sheetViews/s:sheetView', NS).get('rightToLeft'), '1')
             self.assertEqual(tree.find('s:sheetViews/s:sheetView/s:pane', NS).get('state'), 'frozen')
-            self.assertEqual(tree.find('s:autoFilter', NS).get('ref'), 'A1:I2')
+            self.assertEqual(tree.find('s:autoFilter', NS).get('ref'), 'A1:K2')
         table = cells(data)
         self.assertEqual(tuple(table[0]), HEADERS)
         self.assertEqual(table[1][1], 'BTC/USDT')
@@ -134,7 +134,7 @@ class WorkbookTests(unittest.TestCase):
                   ('binance', 'ABCUSDT'): {'price': '125', 'at_ms': NOW+2000}}
         data = build_report(rows, quotes, NOW+3000)
         table = cells(data)
-        self.assertEqual(len(table[0]), 9)
+        self.assertEqual(len(table[0]), 11)
         self.assertEqual([entry[1] for entry in table[1:]],
                          ['ABC/USDT', 'ABC/USDT'])
         self.assertEqual([entry[2] for entry in table[1:]], ['Binance', 'Gate.io'])

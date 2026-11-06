@@ -676,7 +676,9 @@ def main():
         daily_stores, daily_scanners, history, report_store = build_daily(
             store, gate_store, state_path, universe, universe_version, history,
             report_store, send_alert, stop, client, gate_client, gate_enabled=gate_enabled)
-        reports = ReportService(ReportView(report_store, store), report_client, send_report_document, send_report_notice, stop)
+        from peak_prices import PeakPrices
+        reports = ReportService(ReportView(report_store, store), report_client, send_report_document, send_report_notice, stop,
+                                peak_provider=PeakPrices(report_client, store, stop))
         from signal_log import SignalLog
         sources = {('binance', '4h'): store}
         if gate_store is not None:
