@@ -44,12 +44,13 @@ class SignalLog:
             source, symbol, _, frame = self.identity(row)
             label = 'Binance' if source == 'binance' else 'Gate.io'
             link = f'https://t.me/{self.username}?start=sig_{self.key(row)}'
-            visible = f'✅ {symbol.replace("_", "")} | {frame} | {label} | {stamp:%d/%m} | {stamp:%H:%M}\n'
+            coin = symbol[:-5] if symbol.endswith('_USDT') else symbol[:-4] if symbol.endswith('USDT') else symbol
+            visible = f'✅ {coin} | {frame} | {label} | {stamp:%d/%m} | {stamp:%H:%M}\n'
             ticker = symbol[:-5] + 'USDT' if symbol.endswith('_USDT') else symbol
             chart = 'https://www.tradingview.com/chart/?' + urlencode({
                 'symbol': ('BINANCE' if source == 'binance' else 'GATEIO') + ':' + ticker,
                 'interval': 'D' if frame == '1D' else '240'})
-            line = (f'<a href="{link}">✅</a> {escape(symbol.replace("_", ""))} | {frame} | '
+            line = (f'<a href="{link}">✅</a> {escape(coin)} | {frame} | '
                     f'<a href="{escape(chart, quote=True)}">{label}</a> | '
                     f'{stamp:%d/%m} | {stamp:%H:%M}\n')
             line_size = len(visible.encode('utf-16-le')) // 2
