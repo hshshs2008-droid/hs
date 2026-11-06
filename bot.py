@@ -34,6 +34,20 @@ WELCOME = (
 )
 
 
+def report_delivery_notice(store, chat_id, sent_at_ms):
+    """Owner notification only; no approval step and no notice for own reports."""
+    from alerts import DISPLAY_TZ
+    admin = store.admin_id
+    if type(admin) is not int or admin <= 0 or chat_id == admin:
+        return None
+    with store._lock:
+        row = store._db.execute('SELECT name FROM access_requests WHERE chat_id=?', (chat_id,)).fetchone()
+    name = ' '.join(str(row[0]).split()) if row and row[0] else str(chat_id)
+    stamp = datetime.fromtimestamp(sent_at_ms / 1000, DISPLAY_TZ)
+    return admin, (f'📊 المشترك {name} حصل على تقرير Excel.\n'
+                   f'📅 التاريخ: {stamp:%Y-%m-%d}\n🕒 الوقت: {stamp:%H:%M}')
+
+
 def refresh_command_menu(token, admin_id):
     commands = [
         {"command": "signals", "description": "📋 إشارات آخر 48 ساعة"},
@@ -653,6 +667,11 @@ def main():
                 raise AlertDeliveryError("التقرير متاح للمشتركين المعتمدين فقط.", status=403)
             return send_alert(chat_id, text)
 
+        def notify_report_delivery(chat_id, sent_at_ms):
+            notice = report_delivery_notice(store, chat_id, sent_at_ms)
+            if notice is not None:
+                return send_alert(*notice)
+
         scanner = Scanner(client, store, send_alert, send_signal=send_live_signal)
         history = HistoryService(client, lambda chat_id, text: send_alert(chat_id, text, "HTML"), stop,
                                  store=store)
@@ -678,7 +697,7 @@ def main():
             report_store, send_alert, stop, client, gate_client, gate_enabled=gate_enabled)
         from peak_prices import PeakPrices
         reports = ReportService(ReportView(report_store, store), report_client, send_report_document, send_report_notice, stop,
-                                peak_provider=PeakPrices(report_client, store, stop))
+                                peak_provider=PeakPrices(report_client, store, stop), on_delivered=notify_report_delivery)
         from signal_log import SignalLog
         sources = {('binance', '4h'): store}
         if gate_store is not None:

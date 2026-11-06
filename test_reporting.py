@@ -176,6 +176,25 @@ class ServiceTests(unittest.TestCase):
                                      clock=lambda: NOW/1000, request_delay=0)
         self.addCleanup(self.shutdown)
 
+    def test_owner_notice_only_follows_successful_document(self):
+        notice = Mock()
+        self.service.on_delivered = notice
+        self.service._generate(100)
+        self.document.assert_called_once()
+        notice.assert_called_once_with(100, NOW)
+        notice.reset_mock()
+        self.document.side_effect = AlertDeliveryError('failed', status=403)
+        with self.assertRaises(AlertDeliveryError):
+            self.service._generate(100)
+        notice.assert_not_called()
+
+    def test_notice_failure_does_not_resend_document_or_report_false_failure(self):
+        self.service.on_delivered = Mock(side_effect=AlertDeliveryError('notice failed', status=403))
+        with self.assertLogs('reporting', level='WARNING'):
+            self.service._generate(100)
+        self.document.assert_called_once()
+        self.notice.assert_not_called()
+
     def shutdown(self):
         self.stop.set()
         self.service.join(2)

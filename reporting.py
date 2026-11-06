@@ -329,9 +329,10 @@ class ReportService:
     """One approved-recipient worker; generation never blocks Telegram polling."""
 
     def __init__(self, store, client, send_document, send_notice, stop_event,
-                 *, clock=time.time, request_delay=0.15, peak_provider=None):
+                 *, clock=time.time, request_delay=0.15, peak_provider=None, on_delivered=None):
         if request_delay < 0:
             raise ValueError('Report request delay must be nonnegative.')
+        self.on_delivered = on_delivered
         self.peak_provider = peak_provider
         self.store, self.client = store, client
         self.send_document, self.send_notice = send_document, send_notice
@@ -433,7 +434,14 @@ class ReportService:
         filename = 'signals-report-' + datetime.fromtimestamp(generated / 1000, timezone.utc).strftime('%Y%m%d-%H%M%S') + '.xlsx'
         caption = ('تقرير التوصيات والأسعار الحالية وأقصى ارتفاع ضمن الدقائق المكتملة بعد الإرسال. القمة تقدير محافظ وليست ربحًا محققًا. '
                    'الأسعار غير المسجلة أو غير المتاحة موضحة داخل الملف.')
-        self._send(self.send_document, chat_id, document, filename, caption)
+        delivered = self._send(self.send_document, chat_id, document, filename, caption)
+        if delivered and self.on_delivered is not None:
+            sent_at = int(self.clock() * 1000)
+            try:
+                self._send(self.on_delivered, chat_id, sent_at)
+            except Exception as error:
+                # A notice failure must never retry the already delivered document.
+                logger.warning('Report delivery notice failed; error_type=%s', type(error).__name__)
 
     def _run(self):
         while not self.stop.is_set():

@@ -25,6 +25,17 @@ class ReportBotTests(unittest.TestCase):
         self.client.latest_price.return_value = '0.0000123456789012345678'
         self.text = '📈 BTCUSDT\n🕒 إغلاق شمعة 4h: 2026-10-25 (10:00)'
 
+    def test_report_notice_identifies_member_and_uses_local_send_time(self):
+        from datetime import datetime, timezone
+        self.store.request_access(200, 'أحمد', 1)
+        sent = int(datetime(2026, 11, 6, 12, 30, tzinfo=timezone.utc).timestamp()*1000)
+        target, message = bot.report_delivery_notice(self.store, 200, sent)
+        self.assertEqual(target, 100)
+        self.assertIn('المشترك أحمد حصل على تقرير Excel', message)
+        self.assertIn('2026-11-06', message)
+        self.assertIn('14:30', message)
+        self.assertIsNone(bot.report_delivery_notice(self.store, 100, sent))
+
     def receipt(self, chat_id=100, message_id=20, date=1792915201):
         return {'message_id': message_id, 'date': date, 'chat': {'id': chat_id}}
 
