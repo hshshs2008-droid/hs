@@ -297,6 +297,13 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
     parts = text.split(maxsplit=1)
     command = parts[0].split("@", 1)[0] if parts else ""
     chat = message.get("chat")
+    if (command == '/start' and len(parts) == 2 and parts[1].startswith('sig_')
+            and getattr(history, 'uses_delivery_log', False) is True):
+        sender = message.get('from', {})
+        if (isinstance(chat, dict) and chat.get('type') == 'private'
+                and chat.get('id') == sender.get('id') and store.can_access(chat['id'])):
+            history.detail(chat['id'], parts[1][4:])
+        return
     if command == "/myid":
         sender = message.get("from", {})
         if (isinstance(chat, dict) and chat.get("type") == "private"
@@ -401,6 +408,9 @@ def handle_update(token, update, store=None, worker_alive=True, history=None, re
             if history is None:
                 reply = "عرض الإشارات غير متاح الآن؛ حاول لاحقاً."
             else:
+                if getattr(history, 'uses_delivery_log', False) is True:
+                    history.request(chat_id)
+                    return
                 # Acknowledge first: a failed acknowledgement must not create
                 # duplicate background jobs when the polling loop retries.
                 if history.cached_result() is not None:
@@ -667,6 +677,12 @@ def main():
             store, gate_store, state_path, universe, universe_version, history,
             report_store, send_alert, stop, client, gate_client, gate_enabled=gate_enabled)
         reports = ReportService(ReportView(report_store, store), report_client, send_report_document, send_report_notice, stop)
+        from signal_log import SignalLog
+        sources = {('binance', '4h'): store}
+        if gate_store is not None:
+            sources[('gate', '4h')] = gate_store
+        sources.update({(source, '1D'): daily for source, daily in daily_stores})
+        history = SignalLog(ReportView(report_store, store), sources, send_alert, api, token)
         history.start_background()
         try:
             refresh_command_menu(token, store.admin_id)

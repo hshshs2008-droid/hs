@@ -371,7 +371,7 @@ class AlertStore:
         with self._lock:
             cursor = self._db.execute("""
                 SELECT symbol, signal_close_time, quote_price, quote_at_ms,
-                       telegram_sent_at_ms
+                       COALESCE(telegram_sent_at_ms, confirmed_at_ms) AS telegram_sent_at_ms
                 FROM (
                     SELECT *, ROW_NUMBER() OVER (
                         PARTITION BY symbol, signal_close_time
