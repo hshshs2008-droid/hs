@@ -21,13 +21,15 @@ class ReportQuotes:
         except (InvalidOperation, ValueError, TypeError):
             return False
 
-    def fetch(self, keys):
+    def fetch(self, keys, *, not_before=None):
         from reporting import _key_parts
         now = int(self.clock()*1000)
         for key in list(self.cache):
             if not 0 <= now-self.cache[key]['at_ms'] < 60000:
                 del self.cache[key]
-        result = {key:dict(self.cache[key]) for key in keys if key in self.cache}
+        not_before = not_before or {}
+        result = {key:dict(self.cache[key]) for key in keys if key in self.cache
+                  and self.cache[key]['at_ms'] >= not_before.get(key, 0)}
         for source in ('binance','gate'):
             needed = { _key_parts(key)[1]:key for key in keys
                        if key not in result and _key_parts(key)[0] == source }

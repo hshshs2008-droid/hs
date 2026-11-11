@@ -78,6 +78,118 @@ class PeakPrices:
             result['price'] = cached['price']
         return result
 
+    def _commit(self, key, value):
+        # Reports and the tracker may finish in either order. Never rewind coverage.
+        with self.store._lock:
+            old = self.store._metadata(key, None)
+            if old and old['through'] > value['through']:
+                return
+            if old and old.get('price') is not None and value.get('price') is not None:
+                value['price'] = str(max(Decimal(old['price']), Decimal(value['price'])))
+            if old and old.get('observed_high') is not None:
+                if (value.get('observed_high') is None
+                        or Decimal(old['observed_high']) > Decimal(value['observed_high'])):
+                    value['observed_high'] = old['observed_high']
+                    value['observed_at'] = old['observed_at']
+            self.store._set_metadata(key, value)
+
+    def refresh_report(self, rows, quotes, *, clock=time.time):
+        """One bounded minute tail per market; no historical replay on /report.
+
+        Only closed minutes advance the persistent cursor. The last live candle
+        and quote are observations for this report, never marked complete.
+        """
+        from reporting import _key_parts, _quote_key, _price
+        groups = {}
+        for row in rows:
+            source, symbol = _key_parts(_quote_key(row))
+            groups.setdefault((source,symbol), []).append(row)
+        blocked = set()
+        for (source,symbol), members in groups.items():
+            if self.stop.is_set(): return
+            now = int(clock()*1000)
+            closed_end = now//MINUTE*MINUTE
+            candidates = []
+            for row in members:
+                sent = row.get('telegram_sent_at_ms')
+                row['peak'] = {'error':'بانتظار استكمال القمة في الخلفية'}
+                if type(sent) is not int: continue
+                start = (sent+MINUTE-1)//MINUTE*MINUTE
+                key = 'peak_v1:'+hashlib.sha256(json.dumps([source,symbol,start]).encode()).hexdigest()
+                cached = self.store._metadata(key, None)
+                cursor = cached['through'] if cached else start
+                if cursor < start or cursor > closed_end: continue
+                # At most 500 candles including the live minute (~8h 19m).
+                if closed_end-cursor > 499*MINUTE: continue
+                candidates.append((row,key,start,cursor,cached or {}))
+            if not candidates or source in blocked: continue
+            first = min(item[3] for item in candidates)
+            try:
+                if self.stop.wait(.15): return
+                client = self.router.binance_client if source=='binance' else self.router.gate_client
+                if client is None: raise MarketError('Original market unavailable.')
+                if source=='binance':
+                    data = client._get('/api/v3/klines', {'symbol':symbol,'interval':'1m',
+                        'startTime':first,'endTime':now,'limit':500})
+                else:
+                    data = client._get('/spot/candlesticks', {'currency_pair':symbol,'interval':'1m',
+                        'from':first//1000,'to':now//1000})
+                observed = int(clock()*1000)
+                found = {}
+                try:
+                    if not isinstance(data,list): raise ValueError()
+                    for candle in data:
+                        stamp = int(candle[0])*(1000 if source=='gate' else 1)
+                        if not first <= stamp <= closed_end: continue
+                        if source=='gate':
+                            from gate_market import _is_closed_flag, _closed_flag
+                            flag = candle[7] if len(candle)==8 else candle[6] if len(candle)==7 and _is_closed_flag(candle[6]) else None
+                            if stamp < closed_end and flag is not None and not _closed_flag(flag): raise ValueError()
+                        elif int(candle[6]) != stamp+MINUTE-1: raise ValueError()
+                        high = Decimal(str(candle[3] if source=='gate' else candle[2]))
+                        if not high.is_finite() or high<=0 or stamp in found: raise ValueError()
+                        found[stamp] = high
+                    if set(found) != set(range(first,closed_end+MINUTE,MINUTE)): raise ValueError()
+                except (ValueError,TypeError,IndexError,InvalidOperation):
+                    raise MarketError('Incomplete report minute tail.') from None
+                # Suffix maxima let repeated alerts share the same response.
+                suffix = {}; high = None
+                for stamp in range(closed_end-MINUTE,first-MINUTE,-MINUTE):
+                    high = max(high,found[stamp]) if high is not None else found[stamp]
+                    suffix[stamp] = high
+                for row,key,start,cursor,cached in candidates:
+                    closed_high = Decimal(cached['price']) if cached.get('price') is not None else None
+                    if cursor in suffix:
+                        closed_high = max(closed_high,suffix[cursor]) if closed_high is not None else suffix[cursor]
+                    upper = Decimal(cached['upper']) if cached.get('upper') is not None else None
+                    if upper is not None and closed_high is not None and closed_high>=upper: upper=None
+                    peak = max(closed_high,found[closed_end]) if closed_high is not None else found[closed_end]
+                    if (cached.get('observed_high') is not None
+                            and start <= cached.get('observed_at',0) <= observed):
+                        peak = max(peak,Decimal(cached['observed_high']))
+                    quote = quotes.get(_quote_key(row),{})
+                    price = _price(quote.get('price'))
+                    at = quote.get('at_ms')
+                    if price is not None and type(at) is int and start <= at <= observed:
+                        peak = max(peak,price)
+                    result = {'start':start,'through':closed_end,
+                        'observed_at_ms':min(observed,closed_end+MINUTE),
+                        'live_minute':closed_end}
+                    if upper is not None and peak<upper:
+                        result['error']='تعذر إثبات القمة القديمة؛ حدّ الفترة المفقودة أعلى من السعر المؤكد'
+                    else:
+                        result['price']=str(peak)
+                    self._commit(key, {'price':str(closed_high) if closed_high is not None else None,
+                        'through':closed_end,'upper':str(upper) if upper is not None else None,
+                        'recovered':cached.get('recovered',False),
+                        'observed_high':str(peak),'observed_at':result['observed_at_ms']})
+                    row['peak']=result
+            except MarketError as error:
+                for row, *_ in candidates:
+                    row['peak']={'error':'تعذر تحديث الفترة الأخيرة؛ لا تُعرض القمة القديمة كقمة حالية'}
+                if error.status in (403,418,429,451): blocked.add(source)
+                logger.warning('Report tail unavailable; source=%s symbol=%s status=%s',source,symbol,error.status)
+
     def measure(self, source, symbol, sent_ms, now_ms):
         with self._lock:
             return self._measure(source, symbol, sent_ms, now_ms)
@@ -95,11 +207,16 @@ class PeakPrices:
         cached = self.store._metadata(key, None)
         cursor, high, upper = start, None, None
         recovered = False
-        if cached and start <= cached['through'] <= end:
+        if cached and start <= cached['through']:
             cursor = cached['through']
             high = Decimal(cached['price']) if cached.get('price') is not None else None
             upper = Decimal(cached['upper']) if cached.get('upper') is not None else None
             recovered = cached.get('recovered', False)
+            if (cached.get('observed_high') is not None
+                    and start <= cached.get('observed_at',0) <= end):
+                observed_high = Decimal(cached['observed_high'])
+                high = max(high,observed_high) if high is not None else observed_high
+                if upper is not None and high >= upper: upper = None
         while cursor < end:
             if self.stop.wait(0): raise MarketError('Peak scan stopped.')
             step = HOUR if cursor % HOUR == 0 and end-cursor >= HOUR else MINUTE
@@ -129,13 +246,13 @@ class PeakPrices:
             if high is not None and upper is not None and high >= upper:
                 upper = None  # Proved: no unknown boundary price can exceed high.
             cursor = finish
-            self.store._set_metadata(key, {'price':str(high) if high is not None else None,
+            self._commit(key, {'price':str(high) if high is not None else None,
                 'through':cursor,'upper':str(upper) if upper is not None else None,
                 'recovered':recovered})
         if upper is not None or high is None:
             return {'error':'تعذر إثبات القمة: دقائق قديمة وحدّ الشمعة المتداخلة أعلى من القمة المؤكدة.',
-                    'start':start,'through':end}
-        return {'price':str(high),'start':start,'through':end}
+                    'start':start,'through':cursor}
+        return {'price':str(high),'start':start,'through':cursor}
 
 
 class PeakTracker(threading.Thread):

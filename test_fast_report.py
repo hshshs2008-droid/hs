@@ -70,22 +70,26 @@ class FastReportTests(unittest.TestCase):
         db._set_metadata(key,{'price':'12','through':HOUR,'upper':'99'})
         self.assertNotIn('price',provider.snapshot('gate','ABC_USDT',15000,2*HOUR))
 
-    def test_service_sends_cached_peaks_without_historical_scan(self):
+    def test_service_requests_only_tail_refresh_not_historical_scan(self):
         store=Mock();store.can_access.return_value=True
         store.report_rows.return_value=[row()];store.get_ledger_started_at_ms.return_value=NOW-10000
-        peak=Mock();peak.snapshot.return_value={'price':'110','start':NOW-90000,'through':NOW-60000}
+        peak=Mock()
+        def refresh(rows, quotes, **kwargs):
+            rows[0]['peak']={'price':'125','start':NOW-90000,'through':NOW-60000}
+        peak.refresh_report.side_effect=refresh
         self.router.binance_client._get.return_value=[{'symbol':'BTCUSDT','price':'120'}]
         send=Mock()
         service=ReportService(store,self.router,send,Mock(),self.stop,clock=self.clock,
                               peak_provider=peak,quote_provider=self.quotes)
         service._generate(100)
         peak.measure.assert_not_called()
-        peak.snapshot.assert_called_once()
+        peak.snapshot.assert_not_called()
+        peak.refresh_report.assert_called_once()
         self.router.latest_price.assert_not_called()
         table=cells(send.call_args.args[1])
         self.assertEqual(table[1][7],120)
-        self.assertEqual(table[1][9],110)
-        self.assertIn('آخر تحديث محفوظ',send.call_args.args[3])
+        self.assertEqual(table[1][9],125)
+        self.assertIn('استُكملت القمم',send.call_args.args[3])
 
     def test_binance_batches_are_bounded(self):
         self.router.binance_client._get.side_effect=lambda path,p:[{'symbol':s,'price':'1'} for s in json.loads(p['symbols'])]
@@ -94,3 +98,13 @@ class FastReportTests(unittest.TestCase):
         self.assertEqual(self.router.binance_client._get.call_count,3)
         for call in self.router.binance_client._get.call_args_list:
             self.assertLessEqual(len(json.loads(call.args[1]['symbols'])),100)
+
+    def test_new_signal_does_not_reuse_a_quote_from_before_its_start(self):
+        key=('gate','ABC_USDT')
+        self.router.gate_client._get.return_value=[{'currency_pair':'ABC_USDT','last':'2'}]
+        self.quotes.fetch({key})
+        self.clock.return_value=NOW/1000+2
+        self.router.gate_client._get.return_value=[{'currency_pair':'ABC_USDT','last':'3'}]
+        result=self.quotes.fetch({key},not_before={key:NOW+1000})
+        self.assertEqual(self.router.gate_client._get.call_count,2)
+        self.assertEqual(result[key]['price'],'3')

@@ -238,7 +238,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
             values.append(('غير محسوب', 0, False))
         main.append(values)
     metadata = [('البند', 'القيمة'),
-                ('* نطاق القمة', 'تقدير محافظ من أول دقيقة كاملة بعد الإرسال حتى نهاية التغطية المحفوظة الموضحة لكل توصية في هذه الورقة، وقد تسبق وقت إنشاء التقرير. تحديث القمم يعمل في الخلفية كل 6 ساعات. لا يشمل ثواني البداية أو الدقيقة المفتوحة؛ ليس ربحًا محققًا. البيانات الناقصة لا تنتج نسبة.'),
+                ('* نطاق القمة', 'تُستكمل الفترة منذ آخر قمة محفوظة حتى آخر دقيقة مغلقة، وتضاف قمة الدقيقة الجارية وقت فحصها والسعر الحالي المرصود بعد بداية التغطية. لا تشمل ثواني البداية قبل أول دقيقة كاملة بعد الإرسال. أوقات التغطية والرصد موضحة لكل توصية؛ ليست ربحًا محققًا. البيانات الناقصة لا تنتج نسبة.'),
                 ('استعادة القمم القديمة', 'عند تعذر الدقائق، تُستخدم شموع أكبر من المنصة نفسها فقط إذا أثبتت حدودها أن الأسعار قبل الإرسال لا يمكن أن ترفع القمة المحتسبة. وإلا تبقى القمة غير مكتملة.'),
                 ('وقت إنشاء التقرير', _label(generated_at_ms)),
                 ('وقت إنشاء التقرير UTC', _label(generated_at_ms, utc=True)),
@@ -258,6 +258,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('تأكيد الإرسال', 'يعتمد التقرير على تأكيدات Telegram؛ المحاولات غير المؤكدة لا تدخل الحسابات. أول إرسال مؤكد قد يختلف عن أول وصول فعلي إذا فُقد رد Telegram.'),
                 ('', ''), ('تفاصيل أسعار الإرسال الأصلية', '')]
     for index, row in enumerate(rows, 1):
+        metadata.append((f'{index}. وقت رصد قمة الدقيقة الأخيرة UTC', _label(row.get('peak', {}).get('observed_at_ms'), utc=True)))
         metadata.append((f'{index}. حالة القمة', row.get('peak', {}).get('error') or ('مكتملة' if _price(row.get('peak', {}).get('price')) is not None else 'غير متاحة')))
         metadata.append((f'{index}. بداية تغطية القمة UTC', _label(row.get('peak', {}).get('start'), utc=True)))
         metadata.append((f'{index}. نهاية تغطية القمة UTC', _label(row.get('peak', {}).get('through'), utc=True)))
@@ -420,7 +421,13 @@ class ReportService:
         blocked_sources = set()
         keys = {_quote_key(row) for row in rows}
         if self.quote_provider is not None:
-            quotes = self.quote_provider.fetch(keys)
+            earliest_quotes = {}
+            for row in rows:
+                sent = row.get('telegram_sent_at_ms')
+                if type(sent) is int:
+                    key = _quote_key(row)
+                    earliest_quotes[key] = max(earliest_quotes.get(key,0),(sent+59999)//60000*60000)
+            quotes = self.quote_provider.fetch(keys, not_before=earliest_quotes)
         else:
             for key in sorted(keys, key=lambda value: tuple(str(part) for part in _key_parts(value))):
                 source, _ = _key_parts(key)
@@ -447,22 +454,16 @@ class ReportService:
             return
         generated = int(self.clock() * 1000)
         if self.peak_provider is not None:
-            for row in rows:
-                if self.stop.is_set() or not self.store.can_access(chat_id):
-                    return
-                source, symbol = _key_parts(_quote_key(row))
-                try:
-                    row['peak'] = self.peak_provider.snapshot(source, symbol, row.get('telegram_sent_at_ms'), generated)
-                except MarketError as error:
-                    row['peak'] = {'error': 'تعذر استكمال بيانات القمة من المنصة'}
-                    logger.warning('Report peak unavailable; source=%s symbol=%s status=%s reason=%s', source, symbol, error.status, str(error))
-                    if error.status in (418,429,403,451): blocked_sources.add(source)
+            self.peak_provider.refresh_report(rows, quotes, clock=self.clock)
+        if self.stop.is_set() or not self.store.can_access(chat_id):
+            return
+        generated = int(self.clock()*1000)
         document = build_report(rows, quotes, generated, self.store.get_ledger_started_at_ms())
         if len(document) > MAX_DOCUMENT_BYTES:
             self._send(self.send_notice, chat_id, 'حجم تقرير Excel تجاوز حد الإرسال؛ يلزم تصدير السجل على أجزاء.')
             return
         filename = 'signals-report-' + datetime.fromtimestamp(generated / 1000, timezone.utc).strftime('%Y%m%d-%H%M%S') + '.xlsx'
-        caption = ('تقرير التوصيات والأسعار الحالية. القمم حتى آخر تحديث محفوظ، وليست بالضرورة حتى وقت طلب التقرير؛ أوقات تغطيتها في ورقة معلومات التقرير. القمة ليست ربحًا محققًا. '
+        caption = ('تقرير التوصيات والأسعار الحالية. استُكملت القمم من آخر حفظ مع قراءة الدقيقة الأخيرة وقت الفحص؛ أوقات التغطية والرصد في ورقة معلومات التقرير. البيانات غير المكتملة موضحة. القمة ليست ربحًا محققًا. '
                    'الأسعار غير المسجلة أو غير المتاحة موضحة داخل الملف.')
         delivered = self._send(self.send_document, chat_id, document, filename, caption)
         if delivered and self.on_delivered is not None:
