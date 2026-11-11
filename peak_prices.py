@@ -62,6 +62,22 @@ class PeakPrices:
         if len(self._segments) > 512: self._segments.popitem(last=False)
         return value
 
+    def snapshot(self, source, symbol, sent_ms, now_ms):
+        """Read one committed checkpoint; no network or acquisition of scan lock."""
+        if type(sent_ms) is not int:
+            return {'error':'وقت الإرسال غير متاح'}
+        start = ((sent_ms+MINUTE-1)//MINUTE)*MINUTE
+        key = 'peak_v1:' + hashlib.sha256(json.dumps([source,symbol,start]).encode()).hexdigest()
+        cached = self.store._metadata(key, None)
+        if not cached or not start < cached['through'] <= now_ms:
+            return {'error':'بانتظار تحديث القمة في الخلفية'}
+        result = {'start':start,'through':cached['through']}
+        if cached.get('upper') is not None or cached.get('price') is None:
+            result['error'] = 'تعذر إثبات القمة القديمة؛ الاستعادة قيد المتابعة'
+        else:
+            result['price'] = cached['price']
+        return result
+
     def measure(self, source, symbol, sent_ms, now_ms):
         with self._lock:
             return self._measure(source, symbol, sent_ms, now_ms)

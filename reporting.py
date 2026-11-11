@@ -212,7 +212,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
             values.append(('غير محسوب', 0, False))
         main.append(values)
     metadata = [('البند', 'القيمة'),
-                ('* نطاق القمة', 'تقدير محافظ من أول دقيقة كاملة بعد الإرسال حتى آخر دقيقة مكتملة وقت التقرير. لا يشمل ثواني البداية أو الدقيقة المفتوحة؛ ليس ربحًا محققًا. البيانات الناقصة لا تنتج نسبة.'),
+                ('* نطاق القمة', 'تقدير محافظ من أول دقيقة كاملة بعد الإرسال حتى نهاية التغطية المحفوظة الموضحة لكل توصية في هذه الورقة، وقد تسبق وقت إنشاء التقرير. تحديث القمم يعمل في الخلفية كل 6 ساعات. لا يشمل ثواني البداية أو الدقيقة المفتوحة؛ ليس ربحًا محققًا. البيانات الناقصة لا تنتج نسبة.'),
                 ('استعادة القمم القديمة', 'عند تعذر الدقائق، تُستخدم شموع أكبر من المنصة نفسها فقط إذا أثبتت حدودها أن الأسعار قبل الإرسال لا يمكن أن ترفع القمة المحتسبة. وإلا تبقى القمة غير مكتملة.'),
                 ('وقت إنشاء التقرير', _label(generated_at_ms)),
                 ('وقت إنشاء التقرير UTC', _label(generated_at_ms, utc=True)),
@@ -224,7 +224,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('تاريخ ووقت التوصية', 'وقت إغلاق شمعة الفريم المذكور (4h أو 1D) التي أكملت الإشارة، وفق التوقيت المحلي المضبوط للبوت مع التوقيت الصيفي والشتوي.'),
                 ('سعر الإشارة', 'السعر المسجل عند أول إرسال مؤكد للتوصية، وهو المرجع المشترك للجميع؛ قد يختلف عن السعر في رسالة مستلم لاحق.'),
                 ('نسبة التغير', '(السعر الحالي ÷ السعر وقت الإرسال − 1) × 100؛ ليست نتيجة صفقة منفذة ولا تشمل الرسوم.'),
-                ('الأسعار الحالية', 'لقطة سعر واحدة لكل عملة على منصتها عند تجهيز التقرير؛ أوقات جلبها موضحة أدناه، وليست جميعها في اللحظة نفسها.'),
+                ('الأسعار الحالية', 'لقطة سعر واحدة لكل عملة على منصتها، تُعاد الاستفادة منها لمدة أقل من دقيقة للطلبات المتقاربة؛ أوقات جلبها موضحة أدناه، وليست جميعها في اللحظة نفسها.'),
                 ('الأسعار القديمة', 'غير مسجل تعني عدم حفظ السعر الأصلي؛ لا يتم تخمينه أو استبداله بسعر الشمعة.'),
                 ('الدقة', 'قد يقرّب Excel الخلايا الرقمية إلى 15 رقماً معنوياً؛ النصوص الأصلية الكاملة محفوظة أدناه.'),
                 ('تكرار الإرسال', 'صف واحد لكل توصية على المنصة والفريم والإغلاق؛ سعرها المرجعي مأخوذ من أول إرسال مؤكد لأي مستلم.'),
@@ -331,11 +331,12 @@ class ReportService:
     """One approved-recipient worker; generation never blocks Telegram polling."""
 
     def __init__(self, store, client, send_document, send_notice, stop_event,
-                 *, clock=time.time, request_delay=0.15, peak_provider=None, on_delivered=None):
+                 *, clock=time.time, request_delay=0.15, peak_provider=None, on_delivered=None, quote_provider=None):
         if request_delay < 0:
             raise ValueError('Report request delay must be nonnegative.')
         self.on_delivered = on_delivered
         self.peak_provider = peak_provider
+        self.quote_provider = quote_provider
         self.store, self.client = store, client
         self.send_document, self.send_notice = send_document, send_notice
         self.stop, self.clock, self.request_delay = stop_event, clock, request_delay
@@ -392,27 +393,30 @@ class ReportService:
         quotes = {}
         blocked_sources = set()
         keys = {_quote_key(row) for row in rows}
-        for key in sorted(keys, key=lambda value: tuple(str(part) for part in _key_parts(value))):
-            source, _ = _key_parts(key)
-            if self.stop.is_set() or not self.store.can_access(chat_id):
-                return
-            if source in blocked_sources:
-                quotes[key] = {'price': None, 'at_ms': None}
-                continue
-            if self.stop.wait(self.request_delay):
-                return
-            try:
-                price = self.client.latest_price(key)
-                if _price(price) is None:
-                    raise MarketError('Invalid current report price.')
-                quotes[key] = {'price': price, 'at_ms': int(self.clock() * 1000)}
-            except MarketError as error:
-                quotes[key] = {'price': None, 'at_ms': None}
-                if error.status in (418, 429, 403, 451):
-                    blocked_sources.add(source)
-                logger.warning('Report quote unavailable; source=%s HTTP status=%s',
-                               'gate' if source == 'gate' else 'binance', error.status)
-            self.heartbeat_ms = int(self.clock() * 1000)
+        if self.quote_provider is not None:
+            quotes = self.quote_provider.fetch(keys)
+        else:
+            for key in sorted(keys, key=lambda value: tuple(str(part) for part in _key_parts(value))):
+                source, _ = _key_parts(key)
+                if self.stop.is_set() or not self.store.can_access(chat_id):
+                    return
+                if source in blocked_sources:
+                    quotes[key] = {'price': None, 'at_ms': None}
+                    continue
+                if self.stop.wait(self.request_delay):
+                    return
+                try:
+                    price = self.client.latest_price(key)
+                    if _price(price) is None:
+                        raise MarketError('Invalid current report price.')
+                    quotes[key] = {'price': price, 'at_ms': int(self.clock() * 1000)}
+                except MarketError as error:
+                    quotes[key] = {'price': None, 'at_ms': None}
+                    if error.status in (418, 429, 403, 451):
+                        blocked_sources.add(source)
+                    logger.warning('Report quote unavailable; source=%s HTTP status=%s',
+                                   'gate' if source == 'gate' else 'binance', error.status)
+                self.heartbeat_ms = int(self.clock() * 1000)
         if self.stop.is_set() or not self.store.can_access(chat_id):
             return
         generated = int(self.clock() * 1000)
@@ -421,11 +425,8 @@ class ReportService:
                 if self.stop.is_set() or not self.store.can_access(chat_id):
                     return
                 source, symbol = _key_parts(_quote_key(row))
-                if source in blocked_sources:
-                    row['peak'] = {'error': 'مصدر البيانات غير متاح'}
-                    continue
                 try:
-                    row['peak'] = self.peak_provider.measure(source, symbol, row.get('telegram_sent_at_ms'), generated)
+                    row['peak'] = self.peak_provider.snapshot(source, symbol, row.get('telegram_sent_at_ms'), generated)
                 except MarketError as error:
                     row['peak'] = {'error': 'تعذر استكمال بيانات القمة من المنصة'}
                     logger.warning('Report peak unavailable; source=%s symbol=%s status=%s reason=%s', source, symbol, error.status, str(error))
@@ -435,7 +436,7 @@ class ReportService:
             self._send(self.send_notice, chat_id, 'حجم تقرير Excel تجاوز حد الإرسال؛ يلزم تصدير السجل على أجزاء.')
             return
         filename = 'signals-report-' + datetime.fromtimestamp(generated / 1000, timezone.utc).strftime('%Y%m%d-%H%M%S') + '.xlsx'
-        caption = ('تقرير التوصيات والأسعار الحالية وأقصى ارتفاع ضمن الدقائق المكتملة بعد الإرسال. القمة تقدير محافظ وليست ربحًا محققًا. '
+        caption = ('تقرير التوصيات والأسعار الحالية. القمم حتى آخر تحديث محفوظ، وليست بالضرورة حتى وقت طلب التقرير؛ أوقات تغطيتها في ورقة معلومات التقرير. القمة ليست ربحًا محققًا. '
                    'الأسعار غير المسجلة أو غير المتاحة موضحة داخل الملف.')
         delivered = self._send(self.send_document, chat_id, document, filename, caption)
         if delivered and self.on_delivered is not None:

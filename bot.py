@@ -700,8 +700,10 @@ def main():
         peak_provider = PeakPrices(report_client, store, stop)
         report_view = ReportView(report_store, store)
         peak_tracker = PeakTracker(peak_provider, lambda: report_view.report_rows(store.admin_id), stop)
+        from report_quotes import ReportQuotes
         reports = ReportService(report_view, report_client, send_report_document, send_report_notice, stop,
-                                peak_provider=peak_provider, on_delivered=notify_report_delivery)
+                                peak_provider=peak_provider, on_delivered=notify_report_delivery,
+                                quote_provider=ReportQuotes(report_client, stop))
         from signal_log import SignalLog
         sources = {('binance', '4h'): store}
         if gate_store is not None:
