@@ -6,6 +6,7 @@ from io import BytesIO
 import logging
 import threading
 import time
+import unicodedata
 from xml.etree import ElementTree as ET
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -92,8 +93,30 @@ def _column(index):
     return label
 
 
-def _worksheet(rows, widths, *, freeze=True, autofilter=False):
+def _data_widths(rows):
+    """Size report columns from displayed body values, excluding header labels."""
+    widths = [6, 8, 8, 12, 7, 5, 10, 10, 9, 10, 9]
+    for values in rows[1:]:
+        for index, (value, style, numeric) in enumerate(values):
+            if numeric and style >= 3:
+                text = f'{Decimal(value)*100:+.2f}%'
+            elif numeric:
+                text = format(Decimal(value), 'f')
+                if '.' in text:
+                    text = text.rstrip('0').rstrip('.')
+            else:
+                text = str(value)
+            length = max((sum(2 if unicodedata.east_asian_width(c) in ('W','F') else 1
+                              for c in line) for line in text.splitlines()), default=0)
+            widths[index] = max(widths[index], min(60, length+2))
+    return widths
+
+
+def _worksheet(rows, widths, *, freeze=True, autofilter=False, header_height=42, fit_width=False):
     root = ET.Element(_tag('worksheet'))
+    if fit_width:
+        properties = ET.SubElement(root, _tag('sheetPr'))
+        ET.SubElement(properties, _tag('pageSetUpPr'), fitToPage='1')
     views = ET.SubElement(root, _tag('sheetViews'))
     view = ET.SubElement(views, _tag('sheetView'), workbookViewId='0', rightToLeft='1')
     if freeze:
@@ -105,7 +128,7 @@ def _worksheet(rows, widths, *, freeze=True, autofilter=False):
     for row_number, values in enumerate(rows, 1):
         row = ET.SubElement(data, _tag('row'), r=str(row_number))
         if row_number == 1:
-            row.set('ht', '42')
+            row.set('ht', str(header_height))
             row.set('customHeight', '1')
         for col_number, (value, style, numeric) in enumerate(values, 1):
             cell = ET.SubElement(row, _tag('c'), r=f'{_column(col_number)}{row_number}', s=str(style))
@@ -118,6 +141,9 @@ def _worksheet(rows, widths, *, freeze=True, autofilter=False):
                 text.text = _text(value)
     if autofilter and rows:
         ET.SubElement(root, _tag('autoFilter'), ref=f'A1:{_column(len(rows[0]))}{len(rows)}')
+    if fit_width:
+        ET.SubElement(root, _tag('pageMargins'), left='0.25', right='0.25', top='0.5', bottom='0.5', header='0.2', footer='0.2')
+        ET.SubElement(root, _tag('pageSetup'), orientation='landscape', paperSize='9', fitToWidth='1', fitToHeight='0')
     return ET.tostring(root, encoding='utf-8', xml_declaration=True)
 
 
@@ -269,7 +295,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                                   ('xl/workbook.xml', workbook), ('xl/_rels/workbook.xml.rels', relationships)):
             archive.writestr(filename, ET.tostring(element, encoding='utf-8', xml_declaration=True))
         archive.writestr('xl/styles.xml', _styles())
-        archive.writestr('xl/worksheets/sheet1.xml', _worksheet(main, (10, 24, 16, 18, 16, 12, 30, 25, 18, 28, 22), autofilter=True))
+        archive.writestr('xl/worksheets/sheet1.xml', _worksheet(main, _data_widths(main), autofilter=True, header_height=90, fit_width=True))
         archive.writestr('xl/worksheets/sheet2.xml', _worksheet(info, (46, 110)))
     return output.getvalue()
 
