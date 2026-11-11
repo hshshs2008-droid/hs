@@ -572,6 +572,11 @@ class AlertStore:
                 (key, json.dumps(value, ensure_ascii=False)),
             )
 
+    def compact_peak_cache(self):
+        """Discard obsolete per-request cache; retain every signal checkpoint."""
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM metadata WHERE key GLOB 'peak_segment_v1:*'")
+
     def status(self):
         status = self._metadata("status", {"state": "idle", "symbols_checked": 0, "alerts_sent": 0,
                                             "pending": 0, "blocked_until": 0, "error": None})

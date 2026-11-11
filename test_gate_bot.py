@@ -143,11 +143,12 @@ class GateBotTests(unittest.TestCase):
                 patch('gate_runtime.GateStore', return_value=gate) as gate_store, \
                 patch('gate_market.GateClient') as gate_client, patch('market.BinanceClient') as binance_client, \
                 patch('alerts.Scanner') as scanners, patch('history.HistoryService') as histories, \
-                patch('reporting.ReportService') as reports, patch('bot.threading.Thread', return_value=thread):
+                patch('reporting.ReportService') as reports, patch('bot.threading.Thread', return_value=thread), patch('peak_prices.PeakTracker') as peaks:
             histories.return_value.is_alive.return_value = False
             histories.return_value.last_error = None
             histories.return_value.refresh_error = None
             reports.return_value.is_alive.return_value = False
+            peaks.return_value.is_alive.return_value = False
             self.assertEqual(bot.main(), 0)
             self.assertEqual(scanners.call_count, 4)
             self.assertIs(scanners.call_args_list[0].args[0], binance_client.return_value)

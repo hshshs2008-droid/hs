@@ -213,6 +213,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
         main.append(values)
     metadata = [('البند', 'القيمة'),
                 ('* نطاق القمة', 'تقدير محافظ من أول دقيقة كاملة بعد الإرسال حتى آخر دقيقة مكتملة وقت التقرير. لا يشمل ثواني البداية أو الدقيقة المفتوحة؛ ليس ربحًا محققًا. البيانات الناقصة لا تنتج نسبة.'),
+                ('استعادة القمم القديمة', 'عند تعذر الدقائق، تُستخدم شموع أكبر من المنصة نفسها فقط إذا أثبتت حدودها أن الأسعار قبل الإرسال لا يمكن أن ترفع القمة المحتسبة. وإلا تبقى القمة غير مكتملة.'),
                 ('وقت إنشاء التقرير', _label(generated_at_ms)),
                 ('وقت إنشاء التقرير UTC', _label(generated_at_ms, utc=True)),
                 ('عدد الإشارات المرسلة المسجلة', len(rows)),
@@ -231,6 +232,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('تأكيد الإرسال', 'يعتمد التقرير على تأكيدات Telegram؛ المحاولات غير المؤكدة لا تدخل الحسابات. أول إرسال مؤكد قد يختلف عن أول وصول فعلي إذا فُقد رد Telegram.'),
                 ('', ''), ('تفاصيل أسعار الإرسال الأصلية', '')]
     for index, row in enumerate(rows, 1):
+        metadata.append((f'{index}. حالة القمة', row.get('peak', {}).get('error') or ('مكتملة' if _price(row.get('peak', {}).get('price')) is not None else 'غير متاحة')))
         metadata.append((f'{index}. بداية تغطية القمة UTC', _label(row.get('peak', {}).get('start'), utc=True)))
         metadata.append((f'{index}. نهاية تغطية القمة UTC', _label(row.get('peak', {}).get('through'), utc=True)))
         metadata.append((f"{index}. {_row_coin(row)} — سعر الإرسال الأصلي", row.get('quote_price') or 'غير مسجل'))
@@ -425,7 +427,8 @@ class ReportService:
                 try:
                     row['peak'] = self.peak_provider.measure(source, symbol, row.get('telegram_sent_at_ms'), generated)
                 except MarketError as error:
-                    row['peak'] = {'error': 'بيانات غير مكتملة'}
+                    row['peak'] = {'error': 'تعذر استكمال بيانات القمة من المنصة'}
+                    logger.warning('Report peak unavailable; source=%s symbol=%s status=%s reason=%s', source, symbol, error.status, str(error))
                     if error.status in (418,429,403,451): blocked_sources.add(source)
         document = build_report(rows, quotes, generated, self.store.get_ledger_started_at_ms())
         if len(document) > MAX_DOCUMENT_BYTES:

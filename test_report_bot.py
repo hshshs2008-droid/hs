@@ -229,10 +229,15 @@ class ReportBotTests(unittest.TestCase):
                 patch('alerts.Scanner') as scanner, patch('market.BinanceClient'), \
                 patch('gate_runtime.GateStore'), \
                 patch('history.HistoryService') as history, patch('reporting.ReportService') as reports, \
-                patch('bot.threading.Thread', return_value=worker):
+                patch('bot.threading.Thread', return_value=worker), patch('peak_prices.PeakTracker') as peaks:
+            peaks.return_value.is_alive.return_value = False
             history.return_value.is_alive.return_value = False
             reports.return_value.is_alive.return_value = False
             self.assertEqual(bot.main(), 0)
+            peaks.return_value.start.assert_called_once()
+            peaks.return_value.join.assert_called_once()
+            store.compact_peak_cache.assert_called_once()
+            self.assertIs(reports.call_args.kwargs['peak_provider'], peaks.call_args.args[0])
             self.assertIn('send_signal', scanner.call_args.kwargs)
             self.assertTrue(callable(scanner.call_args.kwargs['send_signal']))
             reports.return_value.request.assert_called_once_with(100)

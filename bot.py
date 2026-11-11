@@ -695,9 +695,13 @@ def main():
         daily_stores, daily_scanners, history, report_store = build_daily(
             store, gate_store, state_path, universe, universe_version, history,
             report_store, send_alert, stop, client, gate_client, gate_enabled=gate_enabled)
-        from peak_prices import PeakPrices
-        reports = ReportService(ReportView(report_store, store), report_client, send_report_document, send_report_notice, stop,
-                                peak_provider=PeakPrices(report_client, store, stop), on_delivered=notify_report_delivery)
+        from peak_prices import PeakPrices, PeakTracker
+        store.compact_peak_cache()
+        peak_provider = PeakPrices(report_client, store, stop)
+        report_view = ReportView(report_store, store)
+        peak_tracker = PeakTracker(peak_provider, lambda: report_view.report_rows(store.admin_id), stop)
+        reports = ReportService(report_view, report_client, send_report_document, send_report_notice, stop,
+                                peak_provider=peak_provider, on_delivered=notify_report_delivery)
         from signal_log import SignalLog
         sources = {('binance', '4h'): store}
         if gate_store is not None:
@@ -721,6 +725,7 @@ def main():
 
         worker = threading.Thread(target=monitor, args=(scanner,), name="market-scanner", daemon=True)
         worker.start()
+        peak_tracker.start()
         gate_worker = None
         if gate_scanner is not None:
             gate_worker = threading.Thread(target=monitor, args=(gate_scanner,), name="gate-scanner", daemon=True)
@@ -757,7 +762,7 @@ def main():
         finally:
             stop.set()
             deadline = time.monotonic() + 50
-            workers = [worker] + ([gate_worker] if gate_worker is not None else []) + daily_workers
+            workers = [worker, peak_tracker] + ([gate_worker] if gate_worker is not None else []) + daily_workers
             for thread in workers:
                 thread.join(timeout=min(25, max(0, deadline - time.monotonic())))
             history.join(timeout=min(25, max(0, deadline - time.monotonic())))

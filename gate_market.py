@@ -21,7 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
-from market import BinanceClient, Candle, FOUR_HOURS_MS, ONE_DAY_MS, MAX_RESPONSE_BYTES, MarketError, _retry_seconds, EXCLUDED_BASE_ASSETS
+from market import BinanceClient, Candle, FOUR_HOURS_MS, ONE_DAY_MS, MAX_RESPONSE_BYTES, MarketError, HistoricalWindowError, _retry_seconds, EXCLUDED_BASE_ASSETS
 
 
 DEFAULT_GATE_BASE = 'https://api.gateio.ws'
@@ -201,6 +201,14 @@ class GateClient:
                     raise MarketError('Gate.io returned an oversized response.')
                 result = json.loads(raw)
             except HTTPError as error:
+                if error.code == 400:
+                    try:
+                        detail = json.loads(error.read(4096))
+                    except (ValueError, OSError):
+                        detail = {}
+                    if (isinstance(detail, dict) and detail.get('label') == 'INVALID_PARAM_VALUE'
+                            and str(detail.get('message', '')).startswith('Candlestick too long ago.')):
+                        raise HistoricalWindowError('Gate historical candle window exceeded.', status=400) from None
                 now = self._clock()
                 retry_after = _retry_seconds(error.headers.get('Retry-After') if error.headers else None, now)
                 deadline = None
