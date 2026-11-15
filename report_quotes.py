@@ -41,7 +41,13 @@ class ReportQuotes:
                 try:
                     if client is None: raise MarketError('Source unavailable')
                     if source=='binance':
-                        data = client._get('/api/v3/ticker/price', {'symbols':json.dumps(symbols,separators=(',',':'))})
+                        try:
+                            data = client._get('/api/v3/ticker/price', {'symbols':json.dumps(symbols,ensure_ascii=False,separators=(',',':'))})
+                        except MarketError as error:
+                            if error.status != 400: raise
+                            # A delisted/bad symbol must not hide other valid pairs.
+                            # One bulk fallback; never retry access/rate failures.
+                            data = client._get('/api/v3/ticker/price')
                         name, field = 'symbol','price'
                     else:
                         # Gate supports one pair or all; use one request per report.

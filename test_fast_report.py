@@ -108,3 +108,25 @@ class FastReportTests(unittest.TestCase):
         result=self.quotes.fetch({key},not_before={key:NOW+1000})
         self.assertEqual(self.router.gate_client._get.call_count,2)
         self.assertEqual(result[key]['price'],'3')
+
+    def test_binance_unicode_is_literal_json_not_backslash_escapes(self):
+        key=('binance','币安人生USDT')
+        def get(path,params):
+            self.assertIn('币安人生USDT',params['symbols'])
+            self.assertNotIn('\\u',params['symbols'])
+            return [{'symbol':'币安人生USDT','price':'0.47'}]
+        self.router.binance_client._get.side_effect=get
+        self.assertEqual(self.quotes.fetch({key})[key]['price'],'0.47')
+
+    def test_bad_binance_symbol_uses_one_bulk_fallback(self):
+        self.router.binance_client._get.side_effect=[MarketError('Invalid symbol',status=400),
+            [{'symbol':'BTCUSDT','price':'10'},{'symbol':'NOTREQUESTED','price':'99'}]]
+        result=self.quotes.fetch({('binance','BTCUSDT'),('binance','DELISTEDUSDT')})
+        self.assertEqual(set(result),{('binance','BTCUSDT')})
+        self.assertEqual(self.router.binance_client._get.call_count,2)
+        self.assertEqual(len(self.quotes.cache),1)
+
+    def test_binance_rate_limit_does_not_trigger_bulk_fallback(self):
+        self.router.binance_client._get.side_effect=MarketError('rate limit',status=429)
+        self.assertEqual(self.quotes.fetch({('binance','BTCUSDT')}),{})
+        self.router.binance_client._get.assert_called_once()
