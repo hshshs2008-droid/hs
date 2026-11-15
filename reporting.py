@@ -238,7 +238,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
             values.append(('غير محسوب', 0, False))
         main.append(values)
     metadata = [('البند', 'القيمة'),
-                ('* نطاق القمة', 'تُستكمل الفترة منذ آخر قمة محفوظة حتى آخر دقيقة مغلقة، وتضاف قمة الدقيقة الجارية وقت فحصها والسعر الحالي المرصود بعد بداية التغطية. لا تشمل ثواني البداية قبل أول دقيقة كاملة بعد الإرسال. أوقات التغطية والرصد موضحة لكل توصية؛ ليست ربحًا محققًا. البيانات الناقصة لا تنتج نسبة.'),
+                ('* نطاق القمة', 'تُستكمل الفترة منذ آخر قمة محفوظة حتى آخر دقيقة مغلقة، وتضاف قمة الدقيقة الجارية والدقائق الأخيرة المتأخرة في تأكيد الإغلاق كرصد مؤقت وقت فحصها والسعر الحالي المرصود بعد بداية التغطية. لا تشمل ثواني البداية قبل أول دقيقة كاملة بعد الإرسال. أوقات التغطية والرصد موضحة لكل توصية؛ ليست ربحًا محققًا. البيانات الناقصة لا تنتج نسبة.'),
                 ('استعادة القمم القديمة', 'عند تعذر الدقائق، تُستخدم شموع أكبر من المنصة نفسها فقط إذا أثبتت حدودها أن الأسعار قبل الإرسال لا يمكن أن ترفع القمة المحتسبة. وإلا تبقى القمة غير مكتملة.'),
                 ('وقت إنشاء التقرير', _label(generated_at_ms)),
                 ('وقت إنشاء التقرير UTC', _label(generated_at_ms, utc=True)),
@@ -259,7 +259,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('', ''), ('تفاصيل أسعار الإرسال الأصلية', '')]
     for index, row in enumerate(rows, 1):
         metadata.append((f'{index}. وقت رصد قمة الدقيقة الأخيرة UTC', _label(row.get('peak', {}).get('observed_at_ms'), utc=True)))
-        metadata.append((f'{index}. حالة القمة', row.get('peak', {}).get('error') or ('مكتملة' if _price(row.get('peak', {}).get('price')) is not None else 'غير متاحة')))
+        metadata.append((f'{index}. حالة القمة', row.get('peak', {}).get('error') or row.get('peak', {}).get('note') or ('مكتملة' if _price(row.get('peak', {}).get('price')) is not None else 'غير متاحة')))
         metadata.append((f'{index}. بداية تغطية القمة UTC', _label(row.get('peak', {}).get('start'), utc=True)))
         metadata.append((f'{index}. نهاية تغطية القمة UTC', _label(row.get('peak', {}).get('through'), utc=True)))
         metadata.append((f"{index}. {_row_coin(row)} — سعر الإرسال الأصلي", row.get('quote_price') or 'غير مسجل'))

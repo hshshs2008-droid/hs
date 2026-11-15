@@ -1,5 +1,6 @@
 """Compact post-send maxima. Coarse boundary candles are bounds, never entries."""
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
@@ -104,6 +105,18 @@ class PeakPrices:
         for row in rows:
             source, symbol = _key_parts(_quote_key(row))
             groups.setdefault((source,symbol), []).append(row)
+        # Independent platforms run concurrently; each platform stays sequential.
+        by_source = {}
+        for key, members in groups.items():
+            by_source.setdefault(key[0], {})[key] = members
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(self._refresh_groups, group, quotes, clock)
+                       for group in by_source.values()]
+            for future in futures:
+                future.result()
+
+    def _refresh_groups(self, groups, quotes, clock):
+        from reporting import _quote_key, _price
         blocked = set()
         for (source,symbol), members in groups.items():
             if self.stop.is_set(): return
@@ -136,6 +149,7 @@ class PeakPrices:
                         'from':first//1000,'to':now//1000})
                 observed = int(clock()*1000)
                 found = {}
+                confirmed_end = closed_end
                 try:
                     if not isinstance(data,list): raise ValueError()
                     for candle in data:
@@ -144,7 +158,11 @@ class PeakPrices:
                         if source=='gate':
                             from gate_market import _is_closed_flag, _closed_flag
                             flag = candle[7] if len(candle)==8 else candle[6] if len(candle)==7 and _is_closed_flag(candle[6]) else None
-                            if stamp < closed_end and flag is not None and not _closed_flag(flag): raise ValueError()
+                            if stamp < closed_end and flag is not None and not _closed_flag(flag):
+                                # Gate can lag finalization. Observe the recent tail,
+                                # but re-fetch it next time instead of sealing it.
+                                if stamp < closed_end-2*MINUTE: raise ValueError()
+                                confirmed_end = min(confirmed_end, stamp)
                         elif int(candle[6]) != stamp+MINUTE-1: raise ValueError()
                         high = Decimal(str(candle[3] if source=='gate' else candle[2]))
                         if not high.is_finite() or high<=0 or stamp in found: raise ValueError()
@@ -154,7 +172,7 @@ class PeakPrices:
                     raise MarketError('Incomplete report minute tail.') from None
                 # Suffix maxima let repeated alerts share the same response.
                 suffix = {}; high = None
-                for stamp in range(closed_end-MINUTE,first-MINUTE,-MINUTE):
+                for stamp in range(confirmed_end-MINUTE,first-MINUTE,-MINUTE):
                     high = max(high,found[stamp]) if high is not None else found[stamp]
                     suffix[stamp] = high
                 for row,key,start,cursor,cached in candidates:
@@ -163,7 +181,9 @@ class PeakPrices:
                         closed_high = max(closed_high,suffix[cursor]) if closed_high is not None else suffix[cursor]
                     upper = Decimal(cached['upper']) if cached.get('upper') is not None else None
                     if upper is not None and closed_high is not None and closed_high>=upper: upper=None
-                    peak = max(closed_high,found[closed_end]) if closed_high is not None else found[closed_end]
+                    provisional = max(found[t] for t in range(max(cursor,confirmed_end),closed_end+MINUTE,MINUTE))
+                    peak = max(closed_high,provisional) if closed_high is not None else provisional
+                    through = max(cursor,confirmed_end)
                     if (cached.get('observed_high') is not None
                             and start <= cached.get('observed_at',0) <= observed):
                         peak = max(peak,Decimal(cached['observed_high']))
@@ -172,15 +192,17 @@ class PeakPrices:
                     at = quote.get('at_ms')
                     if price is not None and type(at) is int and start <= at <= observed:
                         peak = max(peak,price)
-                    result = {'start':start,'through':closed_end,
+                    result = {'start':start,'through':through,
                         'observed_at_ms':min(observed,closed_end+MINUTE),
                         'live_minute':closed_end}
+                    if through < closed_end:
+                        result['note']='تتضمن رصدًا مؤقتًا لدقائق أخيرة لم تؤكد المنصة إغلاقها بعد'
                     if upper is not None and peak<upper:
                         result['error']='تعذر إثبات القمة القديمة؛ حدّ الفترة المفقودة أعلى من السعر المؤكد'
                     else:
                         result['price']=str(peak)
                     self._commit(key, {'price':str(closed_high) if closed_high is not None else None,
-                        'through':closed_end,'upper':str(upper) if upper is not None else None,
+                        'through':through,'upper':str(upper) if upper is not None else None,
                         'recovered':cached.get('recovered',False),
                         'observed_high':str(peak),'observed_at':result['observed_at_ms']})
                     row['peak']=result

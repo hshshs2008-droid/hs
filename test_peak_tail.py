@@ -111,3 +111,54 @@ class PeakTailTests(unittest.TestCase):
         self.provider.refresh_report([row],{row['quote_key']:{'price':'12','at_ms':self.now}},clock=self.clock)
         self.assertEqual(row['peak']['price'],'16')
         self.assertEqual(self.db._metadata(self.key(row),None)['observed_high'],'16')
+
+    def test_delayed_gate_finalization_is_observed_then_rechecked(self):
+        row=self.row();self.save(row);self.feed()
+        original=self.client._get.side_effect
+        pending=2*HOUR-MINUTE
+        def delayed(path,params):
+            data=original(path,params)
+            for candle in data:
+                if int(candle[0])*1000==pending:
+                    candle[7]='false';candle[3]='21'
+            return data
+        self.client._get.side_effect=delayed
+        self.provider.refresh_report([row],{},clock=self.clock)
+        self.assertEqual(row['peak']['price'],'21')
+        self.assertIn('note',row['peak'])
+        saved=self.db._metadata(self.key(row),None)
+        self.assertEqual(saved['through'],pending)
+        self.assertEqual(saved['price'],'12')
+        self.assertEqual(saved['observed_high'],'21')
+        self.feed(history='21')
+        self.provider.refresh_report([row],{},clock=self.clock)
+        self.assertEqual(self.client._get.call_args.args[1]['from'],pending//1000)
+        self.assertEqual(self.db._metadata(self.key(row),None)['through'],2*HOUR)
+        self.assertNotIn('note',row['peak'])
+
+    def test_old_unclosed_candle_is_still_rejected(self):
+        row=self.row();self.save(row);self.feed()
+        original=self.client._get.side_effect
+        def stale(path,params):
+            data=original(path,params);data[0][7]='false';return data
+        self.client._get.side_effect=stale
+        self.provider.refresh_report([row],{},clock=self.clock)
+        self.assertNotIn('price',row['peak'])
+        self.assertEqual(self.db._metadata(self.key(row),None)['through'],HOUR)
+
+    def test_platforms_fetch_concurrently(self):
+        barrier=threading.Barrier(2)
+        def client_for(source):
+            client=Mock()
+            def get(path,params):
+                barrier.wait(timeout=3)
+                t=2*HOUR
+                return [[str(t//1000),'0','1','15','1','1','0',False]] if source=='gate' else [[t,'1','15','1','1','0',t+MINUTE-1]]
+            client._get.side_effect=get
+            return client
+        self.provider.router.gate_client=client_for('gate')
+        self.provider.router.binance_client=client_for('binance')
+        rows=[self.row(source='gate'),self.row(source='binance')]
+        for row in rows:self.save(row,through=2*HOUR)
+        self.provider.refresh_report(rows,{},clock=self.clock)
+        self.assertEqual([row['peak']['price'] for row in rows],['15','15'])
