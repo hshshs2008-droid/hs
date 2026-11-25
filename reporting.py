@@ -271,6 +271,8 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
         quote = quotes.get(key, {})
         metadata.append((labels[key] + ' — السعر الحالي الأصلي', quote.get('price') or 'غير متاح'))
         metadata.append((labels[key] + ' — وقت جلب السعر UTC', _label(quote.get('at_ms'), utc=True)))
+        if quote.get('error'):
+            metadata.append((labels[key] + ' — سبب تعذر السعر', quote['error']))
     info = [[(value, 1 if index == 0 else 0, False) for value in values]
             for index, values in enumerate(metadata)]
     content = ET.Element('Types', xmlns=CONTENT_NS)
@@ -428,6 +430,10 @@ class ReportService:
                     key = _quote_key(row)
                     earliest_quotes[key] = max(earliest_quotes.get(key,0),(sent+59999)//60000*60000)
             quotes = self.quote_provider.fetch(keys, not_before=earliest_quotes)
+            errors = getattr(self.quote_provider, 'errors', {})
+            if isinstance(errors, dict):
+                for key, reason in errors.items():
+                    if key not in quotes: quotes[key] = {'error':reason}
         else:
             for key in sorted(keys, key=lambda value: tuple(str(part) for part in _key_parts(value))):
                 source, _ = _key_parts(key)

@@ -115,9 +115,10 @@ class PeakPrices:
             for future in futures:
                 future.result()
 
-    def _refresh_groups(self, groups, quotes, clock):
+    def _refresh_groups(self, groups, quotes, clock, *, retry=True):
         from reporting import _quote_key, _price
         blocked = set()
+        retry_groups = {}
         for (source,symbol), members in groups.items():
             if self.stop.is_set(): return
             now = int(clock()*1000)
@@ -150,6 +151,7 @@ class PeakPrices:
                 observed = int(clock()*1000)
                 found = {}
                 confirmed_end = closed_end
+                reason = 'invalid_candles'
                 try:
                     if not isinstance(data,list): raise ValueError()
                     for candle in data:
@@ -161,15 +163,21 @@ class PeakPrices:
                             if stamp < closed_end and flag is not None and not _closed_flag(flag):
                                 # Gate can lag finalization. Observe the recent tail,
                                 # but re-fetch it next time instead of sealing it.
-                                if stamp < closed_end-2*MINUTE: raise ValueError()
+                                if stamp < closed_end-2*MINUTE:
+                                    reason = 'unconfirmed_minutes'
+                                    raise ValueError()
                                 confirmed_end = min(confirmed_end, stamp)
                         elif int(candle[6]) != stamp+MINUTE-1: raise ValueError()
                         high = Decimal(str(candle[3] if source=='gate' else candle[2]))
                         if not high.is_finite() or high<=0 or stamp in found: raise ValueError()
                         found[stamp] = high
-                    if set(found) != set(range(first,closed_end+MINUTE,MINUTE)): raise ValueError()
+                    if set(found) != set(range(first,closed_end+MINUTE,MINUTE)):
+                        reason = 'missing_minutes'
+                        raise ValueError()
                 except (ValueError,TypeError,IndexError,InvalidOperation):
-                    raise MarketError('Incomplete report minute tail.') from None
+                    error = MarketError('Incomplete report minute tail.')
+                    error.report_reason = reason
+                    raise error from None
                 # Suffix maxima let repeated alerts share the same response.
                 suffix = {}; high = None
                 for stamp in range(confirmed_end-MINUTE,first-MINUTE,-MINUTE):
@@ -207,10 +215,23 @@ class PeakPrices:
                         'observed_high':str(peak),'observed_at':result['observed_at_ms']})
                     row['peak']=result
             except MarketError as error:
+                reason = getattr(error, 'report_reason', 'request_failed')
+                detail = {'missing_minutes':'شموع دقائق ناقصة في رد المنصة',
+                          'unconfirmed_minutes':'المنصة لم تؤكد إغلاق دقائق سابقة',
+                          'invalid_candles':'رد الشموع غير صالح',
+                          'request_failed':'فشل طلب بيانات المنصة'}[reason]
+                if error.status is not None: detail += f' (HTTP {error.status})'
                 for row, *_ in candidates:
-                    row['peak']={'error':'تعذر تحديث الفترة الأخيرة؛ لا تُعرض القمة القديمة كقمة حالية'}
+                    row['peak']={'error':'تعذر تحديث الفترة الأخيرة: '+detail}
                 if error.status in (403,418,429,451): blocked.add(source)
-                logger.warning('Report tail unavailable; source=%s symbol=%s status=%s',source,symbol,error.status)
+                elif (retry and len(retry_groups)<8
+                      and (error.status is None or error.status==408 or 500<=error.status<600)):
+                    retry_groups[(source,symbol)] = members
+                logger.warning('Report tail unavailable; source=%s symbol=%s status=%s reason=%s retry=%s',
+                               source,symbol,error.status,reason,(source,symbol) in retry_groups)
+        retry_groups = {key:value for key,value in retry_groups.items() if key[0] not in blocked}
+        if retry_groups and not self.stop.wait(1):
+            self._refresh_groups(retry_groups, quotes, clock, retry=False)
 
     def measure(self, source, symbol, sent_ms, now_ms):
         with self._lock:

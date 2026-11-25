@@ -130,3 +130,32 @@ class FastReportTests(unittest.TestCase):
         self.router.binance_client._get.side_effect=MarketError('rate limit',status=429)
         self.assertEqual(self.quotes.fetch({('binance','BTCUSDT')}),{})
         self.router.binance_client._get.assert_called_once()
+
+    def test_gate_missing_bulk_prices_are_recovered_per_pair_once(self):
+        self.router.gate_client._get.side_effect=[
+            [{'currency_pair':'GOOD_USDT','last':'5'}],
+            [{'currency_pair':'LION_USDT','last':'0.001'}],
+            [{'currency_pair':'VVS_USDT','last':'0.000001'}]]
+        keys={('gate',s) for s in ('GOOD_USDT','LION_USDT','VVS_USDT')}
+        result=self.quotes.fetch(keys)
+        self.assertEqual(set(result),keys)
+        self.assertEqual(self.quotes.errors,{})
+        self.assertEqual(self.router.gate_client._get.call_count,3)
+        self.assertEqual(self.router.gate_client._get.call_args.args[1],{'currency_pair':'VVS_USDT'})
+
+    def test_bulk_transport_failure_is_retried_without_stale_price(self):
+        self.router.binance_client._get.side_effect=[MarketError('timeout'),[{'symbol':'BTCUSDT','price':'7'}]]
+        self.assertEqual(self.quotes.fetch({('binance','BTCUSDT')})[('binance','BTCUSDT')]['price'],'7')
+        self.assertEqual(self.router.binance_client._get.call_count,2)
+
+    def test_missing_gate_recovery_is_bounded_and_checks_identity(self):
+        self.router.gate_client._get.return_value=[{'currency_pair':'OTHER_USDT','last':'999'}]
+        keys={('gate',f'MISSING{i}_USDT') for i in range(50)}
+        self.assertEqual(self.quotes.fetch(keys),{})
+        self.assertEqual(self.router.gate_client._get.call_count,9)
+        self.assertEqual(set(self.quotes.errors),keys)
+
+    def test_gate_recovery_stops_on_rate_limit(self):
+        self.router.gate_client._get.side_effect=[[],MarketError('limited',status=429)]
+        self.assertEqual(self.quotes.fetch({('gate','A_USDT'),('gate','B_USDT')}),{})
+        self.assertEqual(self.router.gate_client._get.call_count,2)

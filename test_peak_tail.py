@@ -162,3 +162,31 @@ class PeakTailTests(unittest.TestCase):
         for row in rows:self.save(row,through=2*HOUR)
         self.provider.refresh_report(rows,{},clock=self.clock)
         self.assertEqual([row['peak']['price'] for row in rows],['15','15'])
+
+    def test_transient_missing_live_minute_recovers_without_losing_saved_peak(self):
+        row=self.row(source='binance');self.save(row,price='23');self.feed(source='binance')
+        normal=self.client._get.side_effect
+        calls=[]
+        def fetch(path,params):
+            data=normal(path,params);calls.append(params)
+            return data[:-1] if len(calls)==1 else data
+        self.client._get.side_effect=fetch
+        self.provider.refresh_report([row],{},clock=self.clock)
+        self.assertEqual(row['peak']['price'],'23')
+        self.assertEqual(len(calls),2)
+        self.assertEqual(self.db._metadata(self.key(row),None)['through'],2*HOUR)
+
+    def test_persistent_gap_reports_reason_and_never_advances_coverage(self):
+        row=self.row();self.save(row);self.feed(omit=HOUR+MINUTE)
+        self.provider.refresh_report([row],{},clock=self.clock)
+        self.assertNotIn('price',row['peak'])
+        self.assertIn('شموع دقائق ناقصة',row['peak']['error'])
+        self.assertEqual(self.client._get.call_count,2)
+        self.assertEqual(self.db._metadata(self.key(row),None)['through'],HOUR)
+
+    def test_rate_limit_blocks_tail_retries(self):
+        row=self.row();self.save(row)
+        self.client._get.side_effect=MarketError('limited',status=429)
+        self.provider.refresh_report([row],{},clock=self.clock)
+        self.client._get.assert_called_once()
+        self.assertIn('HTTP 429',row['peak']['error'])
