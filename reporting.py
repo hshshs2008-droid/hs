@@ -209,7 +209,8 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
     for index, row in enumerate(rows, 1):
         symbol = row['symbol']
         entry = _price(row.get('quote_price'))
-        current = _price(quotes.get(_quote_key(row), {}).get('price'))
+        delisted = bool(quotes.get(_quote_key(row), {}).get('delisted') or row.get('peak',{}).get('delisted'))
+        current = None if delisted else _price(quotes.get(_quote_key(row), {}).get('price'))
         missing_entry += entry is None
         missing_current += current is None
         closed = datetime.fromtimestamp((row['signal_close_time'] + 1) / 1000, DISPLAY_TZ)
@@ -219,7 +220,7 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                   (closed.strftime('%H:%M'), 0, False),
                   (row.get('timeframe', '4h'), 0, False),
                   (entry if entry is not None else 'غير مسجل', 2 if entry is not None else 0, entry is not None),
-                  (current if current is not None else 'غير متاح', 2 if current is not None else 0, current is not None)]
+                  (current if current is not None else 'مشطوبة' if delisted else 'غير متاح', 2 if current is not None else 0, current is not None)]
         if entry is not None and current is not None:
             with localcontext() as context:
                 context.prec = 80
@@ -227,17 +228,20 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
             values.append((change, 4 if change > 0 else 5 if change < 0 else 3, True))
         else:
             values.append(('غير محسوب', 0, False))
-        peak = _price(row.get('peak', {}).get('price'))
-        values.append((peak if peak is not None else 'بيانات غير مكتملة', 2 if peak is not None else 0, peak is not None))
+        peak = None if delisted else _price(row.get('peak', {}).get('price'))
+        archived = _price(row.get('peak', {}).get('archived_price')) if delisted else None
+        label = f'{archived:f} (تاريخي)' if archived is not None else 'مشطوبة؛ لا قمة محفوظة' if delisted else 'بيانات غير مكتملة'
+        values.append((peak if peak is not None else label, 2 if peak is not None else 0, peak is not None))
         if peak is not None and entry is not None:
             with localcontext() as context:
                 context.prec = 80
                 best = peak / entry - 1
             values.append((best, 4 if best > 0 else 5 if best < 0 else 3, True))
         else:
-            values.append(('غير محسوب', 0, False))
+            values.append(('تاريخي فقط' if archived is not None else 'غير محسوب', 0, False))
         main.append(values)
     metadata = [('البند', 'القيمة'),
+                ('العملات المشطوبة', 'لا يوجد سعر حالي على المنصة بعد الشطب. القمة الموسومة تاريخي هي آخر أعلى سعر محفوظ ضمن التغطية الموضحة؛ لا تثبت القمة حتى الشطب ولا تُحسب منها نسبة مكتملة. لا نستبدلها بسعر منصة أخرى.'),
                 ('* نطاق القمة', 'تُستكمل الفترة منذ آخر قمة محفوظة حتى آخر دقيقة مغلقة، وتضاف قمة الدقيقة الجارية والدقائق الأخيرة المتأخرة في تأكيد الإغلاق كرصد مؤقت وقت فحصها والسعر الحالي المرصود بعد بداية التغطية. لا تشمل ثواني البداية قبل أول دقيقة كاملة بعد الإرسال. أوقات التغطية والرصد موضحة لكل توصية؛ ليست ربحًا محققًا. البيانات الناقصة لا تنتج نسبة.'),
                 ('استعادة القمم القديمة', 'عند تعذر الدقائق، تُستخدم شموع أكبر من المنصة نفسها فقط إذا أثبتت حدودها أن الأسعار قبل الإرسال لا يمكن أن ترفع القمة المحتسبة. وإلا تبقى القمة غير مكتملة.'),
                 ('وقت إنشاء التقرير', _label(generated_at_ms)),
@@ -259,6 +263,8 @@ def build_report(rows, quotes, generated_at_ms, ledger_started_at_ms=None):
                 ('', ''), ('تفاصيل أسعار الإرسال الأصلية', '')]
     for index, row in enumerate(rows, 1):
         metadata.append((f'{index}. وقت رصد قمة الدقيقة الأخيرة UTC', _label(row.get('peak', {}).get('observed_at_ms'), utc=True)))
+        if row.get('peak',{}).get('archived_price') is not None:
+            metadata.append((f'{index}. آخر قمة تاريخية محفوظة', row['peak']['archived_price']))
         metadata.append((f'{index}. حالة القمة', row.get('peak', {}).get('error') or row.get('peak', {}).get('note') or ('مكتملة' if _price(row.get('peak', {}).get('price')) is not None else 'غير متاحة')))
         metadata.append((f'{index}. بداية تغطية القمة UTC', _label(row.get('peak', {}).get('start'), utc=True)))
         metadata.append((f'{index}. نهاية تغطية القمة UTC', _label(row.get('peak', {}).get('through'), utc=True)))
@@ -433,7 +439,11 @@ class ReportService:
             errors = getattr(self.quote_provider, 'errors', {})
             if isinstance(errors, dict):
                 for key, reason in errors.items():
-                    if key not in quotes: quotes[key] = {'error':reason}
+                    if key not in quotes:
+                        quotes[key] = {'error':reason}
+                        delisted_keys = getattr(self.quote_provider, 'delisted', set())
+                        if isinstance(delisted_keys,set) and key in delisted_keys:
+                            quotes[key]['delisted'] = True
         else:
             for key in sorted(keys, key=lambda value: tuple(str(part) for part in _key_parts(value))):
                 source, _ = _key_parts(key)

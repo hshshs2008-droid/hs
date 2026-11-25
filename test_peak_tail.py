@@ -190,3 +190,21 @@ class PeakTailTests(unittest.TestCase):
         self.provider.refresh_report([row],{},clock=self.clock)
         self.client._get.assert_called_once()
         self.assertIn('HTTP 429',row['peak']['error'])
+
+    def test_delisted_quote_preserves_archive_without_network_or_checkpoint_change(self):
+        row=self.row();self.save(row,price='23',through=HOUR)
+        before=self.db._metadata(self.key(row),None)
+        self.provider.refresh_report([row],{row['quote_key']:{'delisted':True}},clock=self.clock)
+        self.client._get.assert_not_called()
+        self.assertEqual(row['peak']['archived_price'],'23')
+        self.assertNotIn('price',row['peak'])
+        self.assertEqual(self.db._metadata(self.key(row),None),before)
+
+    def test_explicit_candle_delisting_keeps_archive_and_marks_quote(self):
+        from market import DelistedMarketError
+        row=self.row();self.save(row,price='23');quotes={}
+        self.client._get.side_effect=DelistedMarketError('delisted',status=400)
+        self.provider.refresh_report([row],quotes,clock=self.clock)
+        self.client._get.assert_called_once()
+        self.assertEqual(row['peak']['archived_price'],'23')
+        self.assertTrue(quotes[row['quote_key']]['delisted'])

@@ -39,6 +39,10 @@ class MarketError(Exception):
         self.cooldown_until = cooldown_until
 
 
+class DelistedMarketError(MarketError):
+    """The exchange explicitly confirms this currency was delisted."""
+
+
 class HistoricalWindowError(MarketError):
     """The exchange explicitly rejected candles beyond its history window."""
 

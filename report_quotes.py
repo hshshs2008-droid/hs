@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 import json
 import logging
 import time
-from market import MarketError
+from market import MarketError, DelistedMarketError
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +13,7 @@ class ReportQuotes:
         self.router, self.stop, self.clock = router, stop, clock
         self.cache = OrderedDict()
         self.errors = {}
+        self.delisted = set()
 
     @staticmethod
     def valid(value):
@@ -25,6 +26,7 @@ class ReportQuotes:
     def fetch(self, keys, *, not_before=None):
         from reporting import _key_parts
         self.errors = {}
+        self.delisted = set()
         now = int(self.clock()*1000)
         for key in list(self.cache):
             if not 0 <= now-self.cache[key]['at_ms'] < 60000:
@@ -98,11 +100,17 @@ class ReportQuotes:
                                 self.errors.pop(key,None)
                             except MarketError as error:
                                 self.errors[key] = 'فشل طلب سعر الزوج'+(f' (HTTP {error.status})' if error.status else '')
+                                if isinstance(error, DelistedMarketError):
+                                    self.delisted.add(key)
+                                    self.errors[key] = 'العملة مشطوبة من هذه المنصة؛ لا يتوفر سعر حالي'
                                 logger.warning('Report quote recovery failed; source=gate symbol=%s status=%s',symbol,error.status)
                                 if error.status in (403,418,429,451): break
                 except MarketError as error:
                     for symbol in symbols:
                         self.errors[needed[symbol]] = 'فشل طلب الأسعار'+(f' (HTTP {error.status})' if error.status else '')
+                        if isinstance(error, DelistedMarketError) and len(symbols)==1:
+                            self.delisted.add(needed[symbol])
+                            self.errors[needed[symbol]] = 'العملة مشطوبة من هذه المنصة؛ لا يتوفر سعر حالي'
                     logger.warning('Report batch unavailable; source=%s status=%s',source,error.status)
                     # Do not turn one failed batch into hundreds of retries.
                     break

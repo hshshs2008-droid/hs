@@ -7,7 +7,7 @@ import json
 import logging
 import threading
 import time
-from market import MarketError, HistoricalWindowError
+from market import MarketError, HistoricalWindowError, DelistedMarketError
 
 MINUTE = 60000
 HOUR = 3600000
@@ -94,6 +94,19 @@ class PeakPrices:
                     value['observed_at'] = old['observed_at']
             self.store._set_metadata(key, value)
 
+    @staticmethod
+    def _archive(start, cached):
+        result = {'delisted':True, 'start':start,
+                  'error':'مشطوبة من المنصة؛ القمة المحفوظة تاريخية ولا تثبت أقصى ارتفاع حتى الشطب'}
+        if cached and cached.get('through',0)>=start:
+            result['through'] = cached['through']
+            prices = [Decimal(cached['price'])] if cached.get('price') is not None else []
+            if cached.get('observed_high') is not None and cached.get('observed_at',0)>=start:
+                prices.append(Decimal(cached['observed_high']))
+                result['observed_at_ms'] = cached['observed_at']
+            if prices: result['archived_price'] = str(max(prices))
+        return result
+
     def refresh_report(self, rows, quotes, *, clock=time.time):
         """One bounded minute tail per market; no historical replay on /report.
 
@@ -131,6 +144,9 @@ class PeakPrices:
                 start = (sent+MINUTE-1)//MINUTE*MINUTE
                 key = 'peak_v1:'+hashlib.sha256(json.dumps([source,symbol,start]).encode()).hexdigest()
                 cached = self.store._metadata(key, None)
+                if quotes.get(_quote_key(row),{}).get('delisted'):
+                    row['peak'] = self._archive(start, cached or {})
+                    continue
                 cursor = cached['through'] if cached else start
                 if cursor < start or cursor > closed_end: continue
                 # At most 500 candles including the live minute (~8h 19m).
@@ -215,6 +231,11 @@ class PeakPrices:
                         'observed_high':str(peak),'observed_at':result['observed_at_ms']})
                     row['peak']=result
             except MarketError as error:
+                if isinstance(error, DelistedMarketError):
+                    for row,key,start,cursor,cached in candidates:
+                        row['peak'] = self._archive(start,cached)
+                        quotes[_quote_key(row)] = {'delisted':True,'error':'العملة مشطوبة من هذه المنصة'}
+                    continue
                 reason = getattr(error, 'report_reason', 'request_failed')
                 detail = {'missing_minutes':'شموع دقائق ناقصة في رد المنصة',
                           'unconfirmed_minutes':'المنصة لم تؤكد إغلاق دقائق سابقة',
