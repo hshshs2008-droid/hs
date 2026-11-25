@@ -31,11 +31,11 @@ class Rsi20Tests(unittest.TestCase):
  def test_priority_30_and_legacy_fields(self):
   for r in ([18,19,35],[19,25,35],[19,35,36]):
    s=evaluate(r,[8,9,15],[10,11,13]);self.assertEqual(s.rsi_threshold,30)
-   self.assertNotIn('💎',format_alert('BTCUSDT',s))
+   self.assertNotIn('🧭 تحقق من وضوح الاتجاه',format_alert('BTCUSDT',s))
   s=evaluate([18,19,23],[8,9,15],[10,11,13]);m=format_alert('ABC_USDT',s,exchange_name='Gate.io Spot')
-  self.assertIn('📊 RSI (14): 19.00 → 23.00 💎',m)
+  self.assertIn('📊 RSI (14): 19.00 → 23.00 🧭 تحقق من وضوح الاتجاه',m)
   self.assertIn('RSI عبور فوق الـ20:',m)
-  self.assertEqual(m.count('💎'),1)
+  self.assertEqual(m.count('🧭 تحقق من وضوح الاتجاه'),1)
   old=asdict(s);old.pop('rsi_threshold');self.assertEqual(Signal(**old).rsi_threshold,30)
  def test_history_one_match_per_completion_and_both_types(self):
   r=[19,23,18,35];k=[9,15,9,15];d=[11,13,11,13];cs=candles(4)

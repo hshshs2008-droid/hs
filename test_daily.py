@@ -64,7 +64,7 @@ class DailyTests(unittest.TestCase):
         text = format_alert('BTCUSDT', self.signal(threshold=20), timeframe='1D')
         self.assertIn('⏳ 1D • شموع مغلقة', text)
         self.assertIn('🕒 1D إغلاق الشمعة:', text)
-        self.assertIn('💎', text)
+        self.assertIn('🧭 تحقق من وضوح الاتجاه', text)
         self.assertNotIn('4h', text)
         self.assertEqual(_refresh_alert_times(text, BOUNDARY-1, BOUNDARY-1, BOUNDARY-1), text)
         with patch('bot.api', return_value={'message_id': 1, 'date': BOUNDARY//1000}) as api:
@@ -77,7 +77,7 @@ class DailyTests(unittest.TestCase):
         self.assertIn('✅ ⏳ 1D شموع مغلقة', rendered)
         self.assertIn('📈 RSI (14):', rendered)
         self.assertIn('🔗 Match: الشرطان في الشمعة نفسها.', rendered)
-        self.assertIn('💎', rendered)
+        self.assertIn('🧭 تحقق من وضوح الاتجاه', rendered)
 
     def test_clients_request_closed_daily_candles_and_reject_misalignment(self):
         for client in (BinanceClient(interval_ms=DAY), GateClient(BinanceClient(), interval_ms=DAY)):

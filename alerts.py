@@ -91,7 +91,7 @@ def format_alert(symbol, signal, *, exchange_name="Binance Spot", timeframe="4h"
         return value if value is not None else getattr(signal, f"{indicator}_{side}")
 
     threshold = signal.rsi_threshold
-    marker = " 💎" if threshold == 20 else ""
+    marker = " 🧭 تحقق من وضوح الاتجاه" if threshold == 20 else ""
     timing = "الشرطان في الشمعة نفسها."
     if signal.rsi_event_close_time != signal.stoch_event_close_time:
         timing = "الشرطان في شمعتين متتاليتين."
